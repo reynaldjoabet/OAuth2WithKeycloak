@@ -1,0 +1,44 @@
+# scala 3
+.tasty
+*.tasty
+
+# sbt
+project/project/
+project/target/
+target/
+
+# intellij idea
+*.log
+*.iml
+*.ipr
+*.iws
+.idea
+.bsp
+.run/*
+
+# metals
+# build tool specific entries
+.bloop
+target
+project/project
+/.bsp/*
+.bloop
+.metals
+metals.mv.db
+metals.lock.db
+metals.sbt
+project/metals.sbt
+
+# PSQL Data
+postgres-data
+
+# mac
+.DS_Store
+
+# other?
+.history
+.scala_dependencies
+.cache-main
+
+#general
+*.class
