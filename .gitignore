@@ -6,7 +6,7 @@
 project/project/
 project/target/
 target/
-
+.vscode/
 # intellij idea
 *.log
 *.iml
