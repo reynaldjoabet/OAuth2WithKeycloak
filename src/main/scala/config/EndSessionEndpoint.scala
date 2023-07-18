@@ -10,5 +10,6 @@ object EndSessionEndpoint {
         "http://localhost:8080/realms/FlashPay/protocol/openid-connect/logout"
       )
       .map(EndSessionEndpoint(_))
+//single logout (or single sign-out):
 
 }

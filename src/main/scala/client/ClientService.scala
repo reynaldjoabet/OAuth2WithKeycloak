@@ -18,14 +18,19 @@ import org.http4s.Status
 import cats.effect.syntax.all._
 import java.util.UUID
 import config._
-import services.RedisService
+import services.TokenService
 import scala.concurrent.duration._
 import org.http4s.circe.CirceEntityCodec._
 import domain.TokenEndpointResponse
+import org.http4s.client.middleware.ResponseLogger
+import cats.effect.std._
+import domain.UserSession
+import config.AllowedPostLogoutRedirectUrl
+import domain.UserInfoResponse
 
-final case class ClientService[F[_]: Async](
+final case class ClientService[F[_]: Async: Console](
     client: Client[F],
-    redisService: RedisService[F]
+    tokenService: TokenService[F]
 ) extends Http4sClientDsl[F] {
 // Store State -> Redirect URL in Redis.
   // On callback, Redirecturl will be retrieved from Redis.
@@ -34,7 +39,7 @@ final case class ClientService[F[_]: Async](
     authorizationEndpoint <- AuthorizationEndpoint.authorizationEndpoint.load[F]
     redirectUrl <- RedirectUrl.redirectUrl.load[F]
     state <- Async[F].delay(UUID.randomUUID().toString())
-    _ <- redisService.set[String, String](state, frontendUrl, Some(40.seconds))
+    _ <- tokenService.setState(state, frontendUrl, 40.seconds)
     queryParams = Map(
       "response_type" -> "code",
       "client_id" -> credentials.clientId.value,
@@ -46,36 +51,36 @@ final case class ClientService[F[_]: Async](
     .unsafeFromString(authorizationEndpoint.value)
     .withQueryParams(queryParams)
 
-  def endUserSessionOnKeycloack() = for {
+  def endUserSessionOnKeycloack(userSession: UserSession) = for {
     credentials <- ClientCredentials.credentials.load[F]
     endSessionEndpoint <- EndSessionEndpoint.endSessionEndpoint.load[F]
-    redirectUrl <- RedirectUrl.redirectUrl.load[F]
+    postLogoutRedirectUrl <- AllowedPostLogoutRedirectUrl.postLogoutRedirectUrl
+      .load[F]
     request = Method.POST(
       UrlForm(
-        "response_type" -> "code",
-        "client_id" -> credentials.clientId.value,
-        "redirect_uri" -> redirectUrl.value // Allowed Logout URLs
+        "refresh_token" -> userSession.refreshToken,
+        "client_secret" -> credentials.clientSecret.value,
+        "client_id" -> credentials.clientId.value
+        // "post_logout_redirect_uri" -> postLogoutRedirectUrl.value // Allowed Logout URLs
       ),
-      Uri.unsafeFromString(endSessionEndpoint.value)
+      Uri.unsafeFromString(endSessionEndpoint.value),
+      Authorization(
+        Credentials.Token(AuthScheme.Bearer, userSession.accessToken)
+      )
     )
-    _ <- client.expect[String](request)
+    _ <- ResponseLogger(true, true)(client).expect[String](request)
   } yield ()
 
-  def getUserProfileInfo(accessToken: String) = for {
-    credentials <- ClientCredentials.credentials.load[F]
-    tokenEndpoint <- TokenEndpoint.tokenEndpoint.load[F]
+  def getUserInfo(accessToken: String): F[UserInfoResponse] = for {
     userInfoEndpoint <- UserInfoEndpoint.userInfoEndpoint.load[F]
-    request = Method.POST(
-      UrlForm(
-        "client_id" -> credentials.clientId.value,
-        "client_secret" -> credentials.clientSecret.value,
-        // "code" -> authorizationCode,
-        "grant_type" -> "authorization_code"
-      ), // redirect,
-      Uri.unsafeFromString(userInfoEndpoint.value)
+    request = Method.GET(
+      Uri.unsafeFromString(userInfoEndpoint.value),
+      Authorization(
+        Credentials.Token(AuthScheme.Bearer, accessToken)
+      )
     )
 
-    token <- client.expect[String](request)
+    token <- client.expect[UserInfoResponse](request)
   } yield token
 
   def fetchBearerToken(authorizationCode: String): F[TokenEndpointResponse] =
@@ -88,8 +93,8 @@ final case class ClientService[F[_]: Async](
           "client_id" -> credentials.clientId.value,
           "client_secret" -> credentials.clientSecret.value,
           "code" -> authorizationCode,
-          "grant_type" -> "authorization_code"
-          // "redirect" -> redirectUrl.value  ???
+          "grant_type" -> "authorization_code",
+          "redirect_uri" -> redirectUrl.value
         ),
         Uri.unsafeFromString(tokenEndpoint.value)
       )
@@ -97,7 +102,7 @@ final case class ClientService[F[_]: Async](
       token <- client.expect[TokenEndpointResponse](request)
     } yield token
 
-  def fetchRefreshAccessToken(refreshToken: String): F[TokenEndpointResponse] =
+  def fetchNewAccessToken(refreshToken: String): F[TokenEndpointResponse] =
     for {
       tokenEndpoint <- TokenEndpoint.tokenEndpoint.load[F]
       credentials <- ClientCredentials.credentials.load[F]
@@ -115,5 +120,12 @@ final case class ClientService[F[_]: Async](
     } yield token
 
   private val scopes =
-    List("openid", "profile", "email", "offline_access").mkString(" ")
+    List("openid").mkString(" ")
+}
+
+object ClientService {
+  def make[F[_]: Async: Console](
+      client: Client[F],
+      tokenService: TokenService[F]
+  ): ClientService[F] = ClientService(client, tokenService)
 }
