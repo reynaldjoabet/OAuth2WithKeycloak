@@ -23,12 +23,11 @@ import scala.concurrent.duration._
 import org.http4s.circe.CirceEntityCodec._
 import domain.TokenEndpointResponse
 import org.http4s.client.middleware.ResponseLogger
-import cats.effect.std._
 import domain.UserSession
 import config.AllowedPostLogoutRedirectUrl
 import domain.UserInfoResponse
 
-final case class ClientService[F[_]: Async: Console](
+final case class ClientService[F[_]: Async](
     client: Client[F],
     tokenService: TokenService[F]
 ) extends Http4sClientDsl[F] {
@@ -124,7 +123,7 @@ final case class ClientService[F[_]: Async: Console](
 }
 
 object ClientService {
-  def make[F[_]: Async: Console](
+  def make[F[_]: Async](
       client: Client[F],
       tokenService: TokenService[F]
   ): ClientService[F] = ClientService(client, tokenService)

@@ -1,5 +1,4 @@
 package domain
-import java.time.Instant
 import io.circe.generic.semiauto.deriveCodec
 import io.circe.syntax._
 import io.circe.parser.decode

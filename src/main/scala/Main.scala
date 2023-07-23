@@ -26,10 +26,12 @@ import dev.profunktor.redis4cats.effect.Log.Stdout._
 import domain.UserSession
 import dev.profunktor.redis4cats.data
 import org.http4s.server.AuthMiddleware
+import cats.Functor
 
 object Main extends IOApp {
 //implicit val loggerName=LoggerName("name")
 
+  Functor[({ type l[a] = Function1[Int, a] })#l]
   private implicit val logger = Slf4jLogger.getLogger[IO]
 
   private def showEmberBanner[F[_]: Logger](s: Server): F[Unit] =
@@ -52,14 +54,14 @@ object Main extends IOApp {
         data.RedisCodec.Utf8
       )
 
-      val tokenService = TokenService.make(redisCommandsUtf8)
-      val clientService = ClientService.make(client, tokenService)
-      val userSessionService = UserSessionService.make(
+      tokenService = TokenService.make(redisCommandsUtf8)
+      clientService = ClientService.make(client, tokenService)
+      userSessionService = UserSessionService.make(
         redisCommands,
         clientService
       )
 
-      val routes = AuthenticationRoutes(
+      routes = AuthenticationRoutes(
         clientService,
         userSessionService,
         tokenService

@@ -44,7 +44,6 @@ import scala.util.Try
 import scala.util.Failure
 import org.http4s.server.AuthMiddleware
 import cats.data.OptionT
-import cats.data
 
 final case class AuthenticationRoutes[F[_]: Async: Console](
     clientService: ClientService[F],
@@ -128,7 +127,7 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
   }
 
   val routes2 = AuthedRoutes.of[UserSession, F] {
-    case request @ POST -> Root / "token" as userSession =>
+    case POST -> Root / "token" as userSession =>
       userSessionService
         .getFreshAccessToken(userSession.sessionId)
         .flatMap {
@@ -225,14 +224,60 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
       .fromEither(parser.parse(idToken))
       .flatTap(a => Console[F].println(a.asString))
 
-  def authUser = Kleisli { request: Request[F] =>
-    extractRequestAuth(request) match {
-      case None => OptionT.none[F, UserSession]
-      case Some(sessionId) =>
-        OptionT(userSessionService.getUserSession(sessionId))
+  // infers properly thanks to kind projector compiler plugin
+  // Kleisli[[X]=>>OptionT[F,X],Request[F],UserSession] in scala3
+/**
+  * Int has has a kind of A, String has a kind of A
+  * Kleisli[F[_],A,B] this is a type constructor that takes a type constructor(s). A higher -kinder type
+  * Types like List that take one argument are cakked type constructors
+  * List is a type constructor, a first order kinded type
+  *  Function1  like Either and Map are binary type constructors( takes two aruguments)
+  * Function1[A,B], Either[A,B] and Map[A,B] are proper types
+  * A=>? is a type constructor that when you apply a proper type, say X, you get back a function A=>X
+  * F[_] is a type constructor and F[A] is a proper type
+  * Higher-kinded types are type constructors that take other types( or even other type constructors) as parameter
+  * 
+  * trait Functor[F[_]] expects a type constructor with one parameter
+  * Functor[List], Functor[Option] but not Functor[Map] as Map takes 2 parameters(Map[K,V]) while the type parameter to 
+  * Functor experts one
+  * Partial applications of type constructors
+  * We can use type aliases to partially apply a type constructor and so adapt the kind of the type to be used
+  * type IntkeyMap[A]=Map[Int,A]
+  * Functor[IntKeyMap]// works now
+  * { type T[Y] = OptionT[F, Y] } defines a structural type denoted by {} with a type alias inside
+  * { type T[Y] = OptionT[F, Y] })#T defines an anonymous type, inside of which is defined a type alia and then accessing the type alias with the # syntax
+  * # is type projection, used to reference the type member T of the structural type
+  * { type T[Y] = OptionT[F, Y] })#T is a type lamda
+  * @return
+  */
+  // the F[_] becomes OptionT[F,?] and F[B] becomes OptionT[F,UserSession]
+  def authUser1: Kleisli[({ type T[Y] = OptionT[F, Y] })#T, Request[F], UserSession] =
+    Kleisli { request: Request[F] =>
+      extractRequestAuth(request) match {
+        case None => OptionT.none[F, UserSession]
+        case Some(sessionId) =>
+          OptionT(userSessionService.getUserSession(sessionId))
+      }
     }
+
+    val n=OptionT[IO,Int](IO(Some(2))).fold(1)(_+4)
+  //def authUser3: Kleisli[({ type T[Y] = OptionT[F, Y] })#T, Request[F], UserSession] = new Kleisli[({ type T[Y] = OptionT[F, Y] })#T, Request[F], UserSession]{
+//override val run: Request[F] => OptionT[F,UserSession] = ???
+   // }
+  def authUser: Kleisli[OptionT[F, *], Request[F], UserSession] = Kleisli {
+    request: Request[F] =>
+      extractRequestAuth(request) match {
+        case None => OptionT.none[F, UserSession]
+        case Some(sessionId) =>
+          OptionT(userSessionService.getUserSession(sessionId))
+      }
   }
 
+  // Kleisli if a wrapper for a function from A=>F[B]
+  // with OptionT[F,*] as F, then it becomes A=>OptionT[F,B]
+  // val mn= new Kleisli[OptionT[F,*],Request[F],UserSession]{
+  // override val run: Request[F] => OptionT[F,UserSession] = ???
+  // }
   val sessionMiddleware: AuthMiddleware[F, UserSession] =
     AuthMiddleware[F, UserSession](authUser)
 

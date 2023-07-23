@@ -1,6 +1,6 @@
 package config
 import ciris._
-import cats.syntax.all._
+
 final case class EndSessionEndpoint(value: String)
 object EndSessionEndpoint {
   val endSessionEndpoint: ConfigValue[Effect, EndSessionEndpoint] =

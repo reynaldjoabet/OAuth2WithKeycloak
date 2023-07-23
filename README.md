@@ -2,8 +2,8 @@
 The backend for frontend pattern for authentication helps mitigate a risk associated with negotiating and handling access tokens from public clients
 This pattern makes use of OpenIDConnect to request and receive identity information about authenticated users
 
-This means that the spa frontend application must be deployed one the same domain(onn the domain) as the backend api(on a subdomain). For instance  www.example.com for the SPA, and api.example.com for the backend.This enables cookies issued to be first party and prevents them being dropped by browsers. The cookies should also use the SameSite=strict parameter, to maintain a high level of security.
-This hides the complexity of authorization flows from the SPA. A simple API can be exposed to the SPA, and the SPA does not need to be aware of the security details
+This means that the spa frontend application must be deployed one the same domain(onn the domain) as the backend api(on a subdomain). For instance  `www.example.com` for the SPA, and `api.example.com` for the backend.This enables cookies issued to be first party and prevents them being dropped by browsers. The cookies should also use the SameSite=strict parameter, to maintain a high level of security.This makes the cookie secure and also not shared across different domains, hence why the frontend and the backend need to be on the same top-level domain
+This hides the complexity of authorization flows from the SPA. A simple API can be exposed to the SPA, and the SPA does not need to be aware of the security details. 
 ![Getting Started](./1_Lcb7ku4Qx1sfSaPlr45wJg.webp)
 
 ## with BFF we can:

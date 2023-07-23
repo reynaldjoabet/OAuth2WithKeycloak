@@ -1,6 +1,5 @@
 package domain
 import io.circe.generic.semiauto.deriveCodec
-import io.circe.Decoder
 final case class AccessToken(
     acr: Option[String],
     address: Option[Address],

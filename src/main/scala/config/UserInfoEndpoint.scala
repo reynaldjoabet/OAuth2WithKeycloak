@@ -1,6 +1,6 @@
 package config
 import ciris._
-import cats.syntax.all._
+
 final case class UserInfoEndpoint(value: String)
 
 object UserInfoEndpoint {

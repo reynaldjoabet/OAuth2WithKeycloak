@@ -24,7 +24,7 @@ object TokenService {
           expiration: FiniteDuration
       ): F[Unit] =
         redisCommands.setEx(ket, value, expiration)
-        
+
       override def deleteState(sessionId: String): F[Long] =
         redisCommands.del(sessionId)
 

@@ -26,7 +26,6 @@ val http4sDsl = http4s("dsl")
 val http4sServer = http4s("ember-server")
 val http4sClient = http4s("ember-client")
 val http4sCirce = http4s("circe")
-
 val logbackVersion = "1.4.7"
 
 val logback = "ch.qos.logback" % "logback-classic" % logbackVersion
@@ -49,6 +48,25 @@ lazy val root = (project in file("."))
       redis4cats,
       cireParser
     )
-  )
+  ) //.settings(commonSettings)
 
 fork := true
+scalacOptions ++= Seq(
+  "-deprecation", // Warning and location for usages of deprecated
+  "-encoding",
+  "utf-8", // Specify character encoding used by source
+  "-feature",
+  "-Xlint:type-parameter-shadow", // A local type parameter shadows a type already in scope.
+  "-Xlint:infer-any", // A type argument is inferred to be `Any`.
+  "-unchecked",
+  "-explaintypes", // Explain type errors in more detail.
+  "-Ywarn-unused:implicits" // An implicit parameter is unused
+  // "-Ywarn-unused:imports",   // An import selector is not referenced.
+  // "-Ywarn-unused:params",  // A value parameter is unused.
+  // "-Ywarn-unused:patvars",   // A variable bound in a pattern is unused.
+  // "-Ywarn-unused:privates"  // A private member is unused
+)
+//scalacOptions += "-language:higherKinds"
+addCompilerPlugin(
+  "org.typelevel" %% "kind-projector" % "0.13.2" cross CrossVersion.full
+)
