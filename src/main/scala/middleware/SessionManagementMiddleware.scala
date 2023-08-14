@@ -15,7 +15,7 @@ object SessionManagementMiddleware {
   trait MyFunctor[F[_]] {
     def map[A, B](fa: F[A])(f: A => B): F[B]
   }
-//We can think of a type constructor such as List[_] as a type-level function, mapping a type X to the type List[X]. 
+//We can think of a type constructor such as List[_] as a type-level function, mapping a type X to the type List[X].
 //This can be expressed with a special syntax, called a type lambda:
 
 //`[X] =>> List[X]`

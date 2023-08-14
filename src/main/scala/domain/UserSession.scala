@@ -14,7 +14,7 @@ import dev.profunktor.redis4cats.data._
 final case class UserSession(
     sessionId: String,
     userId: String,
-    roles: Set[String],
+    roles: List[String],
     accessToken: String,
     refreshToken: String,
     expiration: Int

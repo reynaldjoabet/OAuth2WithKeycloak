@@ -8,7 +8,7 @@ import client.ClientService
 import scala.concurrent.duration.FiniteDuration
 import dev.profunktor.redis4cats.RedisCommands
 import scala.concurrent.duration.Duration
-
+import cats.effect.syntax.all._
 sealed trait UserSessionService[F[_]] {
 
   def getUserSession(sessionId: String): F[Option[UserSession]]
@@ -35,7 +35,9 @@ object UserSessionService {
       redisCommands.get(sessionId)
 
     override def getFreshAccessToken(sessionId: String): F[Option[String]] =
-      retrieveSession(sessionId).map(_.map(_.accessToken))
+      (renewSession(sessionId) <* deleteUserSession(sessionId))
+        .flatMap(sess => setUserSession(sessionId, sess.get).as(sess))
+        .map(_.map(_.refreshToken))
 
     override def refreshAndGetUserSession(
         sessionId: String
@@ -45,21 +47,22 @@ object UserSessionService {
     override def deleteUserSession(sessionId: String): F[Long] =
       redisCommands.del(sessionId)
 
-    private def retrieveSession(sessionId: String): F[Option[UserSession]] =
+    private def renewSession(sessionId: String): F[Option[UserSession]] =
       getUserSession(sessionId)
         .flatMap {
           case Some(session) =>
             clientService
               .fetchNewAccessToken(session.refreshToken)
+              .uncancelable
               .map(resp =>
                 Some(
                   UserSession(
                     session.sessionId,
                     session.userId,
-                    Set.empty[String],
-                    resp.access_token,
-                    refreshToken = resp.refresh_token,
-                    resp.expires_in
+                    List.empty[String],
+                    resp.accessToken,
+                    refreshToken = resp.refreshToken,
+                    resp.expiresIn
                   )
                 )
               )

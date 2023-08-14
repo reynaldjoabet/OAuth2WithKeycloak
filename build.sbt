@@ -8,6 +8,11 @@ val circeVersion = "0.14.5"
 val catsEffectVersion = "3.4.8"
 val fs2Version = "3.7.0"
 val redis4catsVersion = "1.4.3"
+val flywayVersion = "9.21.0"
+val postgresVersion = "42.5.4"
+val doobieVersion = "1.0.0-RC4"
+val logbackVersion = "1.4.7"
+
 def circe(artifact: String): ModuleID =
   "io.circe" %% s"circe-$artifact" % circeVersion
 def ciris(artifact: String): ModuleID = "is.cir" %% artifact % cirisVersion
@@ -26,8 +31,12 @@ val http4sDsl = http4s("dsl")
 val http4sServer = http4s("ember-server")
 val http4sClient = http4s("ember-client")
 val http4sCirce = http4s("circe")
-val logbackVersion = "1.4.7"
 
+val doobie_hikari = "org.tpolecat" %% "doobie-hikari" % doobieVersion
+val postgres = "org.postgresql" % "postgresql" % postgresVersion
+val flyway = "org.flywaydb" % "flyway-core" % flywayVersion
+val doobie = "org.tpolecat" %% "doobie-core" % doobieVersion
+val doobie_postgres = "org.tpolecat" %% "doobie-postgres" % doobieVersion
 val logback = "ch.qos.logback" % "logback-classic" % logbackVersion
 
 lazy val root = (project in file("."))
@@ -46,7 +55,12 @@ lazy val root = (project in file("."))
       fs2,
       retry,
       redis4cats,
-      cireParser
+      cireParser,
+      doobie_hikari,
+      flyway,
+      doobie,
+      doobie_postgres,
+      postgres
     )
   ) //.settings(commonSettings)
 
@@ -70,3 +84,5 @@ scalacOptions ++= Seq(
 addCompilerPlugin(
   "org.typelevel" %% "kind-projector" % "0.13.2" cross CrossVersion.full
 )
+
+run / fork := true

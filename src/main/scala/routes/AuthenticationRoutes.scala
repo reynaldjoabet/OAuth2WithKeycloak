@@ -44,11 +44,13 @@ import scala.util.Try
 import scala.util.Failure
 import org.http4s.server.AuthMiddleware
 import cats.data.OptionT
+import cats.effect.std.UUIDGen
 
 final case class AuthenticationRoutes[F[_]: Async: Console](
     clientService: ClientService[F],
     userSessionService: UserSessionService[F],
-    tokenService: TokenService[F]
+    tokenService: TokenService[F],
+    uuidGen: UUIDGen[F]
 )(implicit val logger: Logger[F])
     extends Http4sDsl[F] {
   object CodeParam extends OptionalQueryParamDecoderMatcher[String]("code")
@@ -89,23 +91,23 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
             )
             tokenEndpointResponse <- clientService
               .fetchBearerToken(code)
-            // .flatTap(token=>Console[F].println(token.id_token))
+            // .flatTap(token=>Console[F].println(token))
             // parse access token and id token
-            newSessionId <- generateSessionId(
-              tokenEndpointResponse.toString() + UUID.randomUUID().toString()
+            newSessionId <- uuidGen.randomUUID.flatMap(uuid =>
+              generateSessionId(uuid.toString())
             )
             // idToken <- extractIdToken(tokenEndpointResponse.id_token)
             userInfo <- clientService
-              .getUserInfo(tokenEndpointResponse.access_token)
+              .getUserInfo(tokenEndpointResponse.accessToken)
             // .flatTap(Console[F].println)
             session <- Async[F].delay(
               UserSession(
                 newSessionId,
                 userInfo.sub,
-                Set.empty[String],
-                tokenEndpointResponse.access_token,
-                tokenEndpointResponse.refresh_token,
-                tokenEndpointResponse.expires_in
+                List.empty[String],
+                tokenEndpointResponse.accessToken,
+                tokenEndpointResponse.refreshToken,
+                tokenEndpointResponse.refreshExpiresIn
               )
             )
             _ <- userSessionService.setUserSession(newSessionId, session)
@@ -134,19 +136,36 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
           case Some(token) => Ok(AccessTokenResponse(token))
           case None        => BadRequest()
         }
+        .recoverWith { case err => InternalServerError(err.toString()) }
     // case request @ GET -> Root / "sso-logout" http://localhost:8081/sso-logout
     case request @ POST -> Root / "logout" as userSession =>
       (for {
-        _ <- clientService.endUserSessionOnKeycloack(userSession)
+        _ <- clientService.endUserSessionOnKeycloak(userSession)
         _ <- (userSessionService.deleteUserSession(
           userSession.sessionId
         ) *> logger.info(
           s"Successfully logged out user ${userSession.userId}"
         ))
       } yield ())
-        .flatMap(_ => Ok().map(_.removeCookie(COOKIE_NAME)))
-        .uncancelable
-    // case req @ GET -> Root / "user" as userSession => ???
+        .flatMap(_ => Ok())
+        .map(_.removeCookie(COOKIE_NAME))
+        .uncancelable // By default the logout endpoint will redirect back to the root of the application after logout is done.
+    // The logout endpoint will trigger revocation of the user’s refresh token (if present).
+
+    case req @ GET -> Root / "user" as userSession =>
+      // if there is no current session, the user endpoint will return a 401 status code
+      // if there is a valid session, the user endpoint returns a user object
+      (for {
+        userInfo <- clientService
+          .getUserInfo(userSession.accessToken)
+      } yield userInfo).flatMap(Ok(_))
+
+    case req @ GET -> Root / "backchannel" as userSession =>
+      // we add an implementation of the OpenID Connect back-channel notification endpoint to overcome
+      // the restrictions of third party cookies in front-channel notification in modern browsers.
+
+      ??? // back-channel logout notifications.
+
   }
 
   def createCookie(sessionId: String): ResponseCookie =
@@ -158,10 +177,12 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
       path = Some("/"),
       sameSite = Some(SameSite.Strict),
       secure = true,
-      httpOnly = true,
+      httpOnly = true
+      // domain = None
       domain = Some("localhost")
     )
   // TODO: incorporate cookie signing.
+  // __Host-XSESSION
   private val COOKIE_NAME = "XSESSION"
 
   def getFrontendUrlFromState(state: String): F[Option[String]] =
@@ -226,32 +247,33 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
 
   // infers properly thanks to kind projector compiler plugin
   // Kleisli[[X]=>>OptionT[F,X],Request[F],UserSession] in scala3
-/**
-  * Int has has a kind of A, String has a kind of A
-  * Kleisli[F[_],A,B] this is a type constructor that takes a type constructor(s). A higher -kinder type
-  * Types like List that take one argument are cakked type constructors
-  * List is a type constructor, a first order kinded type
-  *  Function1  like Either and Map are binary type constructors( takes two aruguments)
-  * Function1[A,B], Either[A,B] and Map[A,B] are proper types
-  * A=>? is a type constructor that when you apply a proper type, say X, you get back a function A=>X
-  * F[_] is a type constructor and F[A] is a proper type
-  * Higher-kinded types are type constructors that take other types( or even other type constructors) as parameter
-  * 
-  * trait Functor[F[_]] expects a type constructor with one parameter
-  * Functor[List], Functor[Option] but not Functor[Map] as Map takes 2 parameters(Map[K,V]) while the type parameter to 
-  * Functor experts one
-  * Partial applications of type constructors
-  * We can use type aliases to partially apply a type constructor and so adapt the kind of the type to be used
-  * type IntkeyMap[A]=Map[Int,A]
-  * Functor[IntKeyMap]// works now
-  * { type T[Y] = OptionT[F, Y] } defines a structural type denoted by {} with a type alias inside
-  * { type T[Y] = OptionT[F, Y] })#T defines an anonymous type, inside of which is defined a type alia and then accessing the type alias with the # syntax
-  * # is type projection, used to reference the type member T of the structural type
-  * { type T[Y] = OptionT[F, Y] })#T is a type lamda
-  * @return
-  */
+  /** Int has has a kind of A, String has a kind of A Kleisli[F[_],A,B] this is
+    * a type constructor that takes a type constructor(s). A higher -kinder type
+    * Types like List that take one argument are cakked type constructors List
+    * is a type constructor, a first order kinded type Function1 like Either and
+    * Map are binary type constructors( takes two aruguments) Function1[A,B],
+    * Either[A,B] and Map[A,B] are proper types A=>? is a type constructor that
+    * when you apply a proper type, say X, you get back a function A=>X F[_] is
+    * a type constructor and F[A] is a proper type Higher-kinded types are type
+    * constructors that take other types( or even other type constructors) as
+    * parameter
+    *
+    * trait Functor[F[_]] expects a type constructor with one parameter
+    * Functor[List], Functor[Option] but not Functor[Map] as Map takes 2
+    * parameters(Map[K,V]) while the type parameter to Functor experts one
+    * Partial applications of type constructors We can use type aliases to
+    * partially apply a type constructor and so adapt the kind of the type to be
+    * used type IntkeyMap[A]=Map[Int,A] Functor[IntKeyMap]// works now { type
+    * T[Y] = OptionT[F, Y] } defines a structural type denoted by {} with a type
+    * alias inside { type T[Y] = OptionT[F, Y] })#T defines an anonymous type,
+    * inside of which is defined a type alia and then accessing the type alias
+    * with the # syntax # is type projection, used to reference the type member
+    * T of the structural type { type T[Y] = OptionT[F, Y] })#T is a type lamda
+    * @return
+    */
   // the F[_] becomes OptionT[F,?] and F[B] becomes OptionT[F,UserSession]
-  def authUser1: Kleisli[({ type T[Y] = OptionT[F, Y] })#T, Request[F], UserSession] =
+  def authUser1
+      : Kleisli[({ type T[X] = OptionT[F, X] })#T, Request[F], UserSession] =
     Kleisli { request: Request[F] =>
       extractRequestAuth(request) match {
         case None => OptionT.none[F, UserSession]
@@ -260,10 +282,9 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
       }
     }
 
-    val n=OptionT[IO,Int](IO(Some(2))).fold(1)(_+4)
-  //def authUser3: Kleisli[({ type T[Y] = OptionT[F, Y] })#T, Request[F], UserSession] = new Kleisli[({ type T[Y] = OptionT[F, Y] })#T, Request[F], UserSession]{
+  // def authUser3: Kleisli[({ type T[Y] = OptionT[F, Y] })#T, Request[F], UserSession] = new Kleisli[({ type T[Y] = OptionT[F, Y] })#T, Request[F], UserSession]{
 //override val run: Request[F] => OptionT[F,UserSession] = ???
-   // }
+  // }
   def authUser: Kleisli[OptionT[F, *], Request[F], UserSession] = Kleisli {
     request: Request[F] =>
       extractRequestAuth(request) match {
@@ -272,6 +293,11 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
           OptionT(userSessionService.getUserSession(sessionId))
       }
   }
+// path dependent type is a subset of type projection
+// you can pass a path dependent type where a projection is needed
+//we need to introduce a type alias and type alias can only be declared in a trait, class, method or an object definition.
+//Unfortunately we cannot define that somewhere “in between” the def and the return type but what we can do is define a structural type in the generic parameter list.
+// we define the type alias in the anonymous structural type and then we refer to it with the # operator
 
   // Kleisli if a wrapper for a function from A=>F[B]
   // with OptionT[F,*] as F, then it becomes A=>OptionT[F,B]
@@ -279,7 +305,8 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
   // override val run: Request[F] => OptionT[F,UserSession] = ???
   // }
   val sessionMiddleware: AuthMiddleware[F, UserSession] =
-    AuthMiddleware[F, UserSession](authUser)
+    AuthMiddleware[F, UserSession](authUser1)
 
   val allRoutes: HttpRoutes[F] = routes <+> sessionMiddleware(routes2)
+
 }

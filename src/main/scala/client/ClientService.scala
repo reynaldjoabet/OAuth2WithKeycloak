@@ -26,18 +26,22 @@ import org.http4s.client.middleware.ResponseLogger
 import domain.UserSession
 import config.AllowedPostLogoutRedirectUrl
 import domain.UserInfoResponse
-
+import cats.effect.std.UUIDGen
 final case class ClientService[F[_]: Async](
     client: Client[F],
-    tokenService: TokenService[F]
+    tokenService: TokenService[F],
+    uuidGen: UUIDGen[F]
 ) extends Http4sClientDsl[F] {
 // Store State -> Redirect URL in Redis.
   // On callback, Redirecturl will be retrieved from Redis.
+  // use authorization code flow with PKCE(recommended)
+  // use a response_mode of query since this plays nicer with SameSite cookies(recommended)
   def makeKeycloakRedirect(frontendUrl: String): F[Uri] = for {
     credentials <- ClientCredentials.credentials.load[F]
     authorizationEndpoint <- AuthorizationEndpoint.authorizationEndpoint.load[F]
     redirectUrl <- RedirectUrl.redirectUrl.load[F]
-    state <- Async[F].delay(UUID.randomUUID().toString())
+    // state <- Async[F].delay(UUID.randomUUID().toString())
+    state <- uuidGen.randomUUID.map(_.toString())
     _ <- tokenService.setState(state, frontendUrl, 40.seconds)
     queryParams = Map(
       "response_type" -> "code",
@@ -45,12 +49,13 @@ final case class ClientService[F[_]: Async](
       "redirect_uri" -> redirectUrl.value,
       "scope" -> scopes,
       "state" -> state
+      // "response_mode"->"query"
     )
   } yield Uri
     .unsafeFromString(authorizationEndpoint.value)
     .withQueryParams(queryParams)
 
-  def endUserSessionOnKeycloack(userSession: UserSession) = for {
+  def endUserSessionOnKeycloak(userSession: UserSession) = for {
     credentials <- ClientCredentials.credentials.load[F]
     endSessionEndpoint <- EndSessionEndpoint.endSessionEndpoint.load[F]
     postLogoutRedirectUrl <- AllowedPostLogoutRedirectUrl.postLogoutRedirectUrl
@@ -62,10 +67,16 @@ final case class ClientService[F[_]: Async](
         "client_id" -> credentials.clientId.value
         // "post_logout_redirect_uri" -> postLogoutRedirectUrl.value // Allowed Logout URLs
       ),
-      Uri.unsafeFromString(endSessionEndpoint.value),
-      Authorization(
-        Credentials.Token(AuthScheme.Bearer, userSession.accessToken)
-      )
+      Uri.unsafeFromString(endSessionEndpoint.value)
+      // Authorization(
+      // BasicCredentials(
+      // credentials.clientId.value,
+      // credentials.clientSecret.value
+      //  )
+      // )
+      /// Authorization(
+      // Credentials.Token(AuthScheme.Bearer, userSession.accessToken)
+      // )
     )
     _ <- ResponseLogger(true, true)(client).expect[String](request)
   } yield ()
@@ -117,14 +128,15 @@ final case class ClientService[F[_]: Async](
 
       token <- client.expect[TokenEndpointResponse](request)
     } yield token
-
+//scopes enable a mechanism to define what an application can do on behalf of the user
   private val scopes =
-    List("openid").mkString(" ")
+    List("openid", "address").mkString(" ")
 }
 
 object ClientService {
   def make[F[_]: Async](
       client: Client[F],
-      tokenService: TokenService[F]
-  ): ClientService[F] = ClientService(client, tokenService)
+      tokenService: TokenService[F],
+      uuidGen: UUIDGen[F]
+  ): ClientService[F] = ClientService(client, tokenService, uuidGen)
 }
