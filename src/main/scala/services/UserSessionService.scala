@@ -37,7 +37,7 @@ object UserSessionService {
     override def getFreshAccessToken(sessionId: String): F[Option[String]] =
       (renewSession(sessionId) <* deleteUserSession(sessionId))
         .flatMap(sess => setUserSession(sessionId, sess.get).as(sess))
-        .map(_.map(_.refreshToken))
+        .map(_.map(_.accessToken))
 
     override def refreshAndGetUserSession(
         sessionId: String
@@ -62,7 +62,8 @@ object UserSessionService {
                     List.empty[String],
                     resp.accessToken,
                     refreshToken = resp.refreshToken,
-                    resp.expiresIn
+                    resp.expiresIn,
+                    resp.idToken
                   )
                 )
               )

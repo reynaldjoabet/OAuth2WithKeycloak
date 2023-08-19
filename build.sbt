@@ -18,6 +18,8 @@ def circe(artifact: String): ModuleID =
 def ciris(artifact: String): ModuleID = "is.cir" %% artifact % cirisVersion
 def http4s(artifact: String): ModuleID =
   "org.http4s" %% s"http4s-$artifact" % http4sVersion
+
+
 val circeGenericExtras = circe("generic-extras")
 val circeCore = circe("core")
 val circeGeneric = circe("generic")
@@ -30,6 +32,8 @@ val redis4cats = "dev.profunktor" %% "redis4cats-effects" % redis4catsVersion
 val http4sDsl = http4s("dsl")
 val http4sServer = http4s("ember-server")
 val http4sClient = http4s("ember-client")
+//val blazeClient= ???
+//val blazeServer= "org.http4s" %% "http4s-blaze-server" % "0.23.15"
 val http4sCirce = http4s("circe")
 
 val doobie_hikari = "org.tpolecat" %% "doobie-hikari" % doobieVersion
@@ -60,7 +64,7 @@ lazy val root = (project in file("."))
       flyway,
       doobie,
       doobie_postgres,
-      postgres
+      postgres,
     )
   ) //.settings(commonSettings)
 
@@ -86,3 +90,14 @@ addCompilerPlugin(
 )
 
 run / fork := true
+
+javaOptions ++= Seq(
+  // "-J-XX:ActiveProcessorCount=4", // Overrides the automatic detection mechanism of the JVM that doesn't work very well in k8s.
+//    "-J-XX:MaxRAMPercentage=80.0",  // 80% * 1280Mi = 1024Mi (See https://github.com/conduktor/conduktor-devtools-builds/pull/96/files#diff-1c0a26888454bc51fc9423622b5d4ee82456b0420f169518a371f3f0e23d443cR67-R70)
+  // "-J-XX:+ExitOnOutOfMemoryError",
+  // "-J-XX:+HeapDumpOnOutOfMemoryError",
+  // "-J-XshowSettings:system",      // https://developers.redhat.com/articles/2022/04/19/java-17-whats-new-openjdks-container-awareness#recent_changes_in_openjdk_s_container_awareness_code
+  "-Dfile.encoding=UTF-8"
+)
+
+

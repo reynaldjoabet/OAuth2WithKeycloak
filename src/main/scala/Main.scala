@@ -36,7 +36,29 @@ import org.http4s.Uri
 import org.http4s.server.middleware.CORS
 import org.typelevel.ci._
 import org.http4s.Method._
+//import scala.concurrent.ExecutionContext.global
+import scala.concurrent.ExecutionContext.fromExecutorService
+import java.util.concurrent.Executors
+import org.http4s.headers.Referer
+import fs2.io.net.tls.TLSContext
+import java.security.KeyStore
+import javax.net.ssl.KeyManagerFactory
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManagerFactory
+import java.security.SecureRandom
+import fs2.io.file.Files
+import fs2.io.file.Path
+import fs2.io.toInputStream
+import cats.effect.kernel.syntax.resource
+import org.http4s.server.middleware.HSTS
+import fs2.io.net.tls.TLSParameters
+
+
 object Main extends IOApp {
+  val password = "password" // .toCharArray()
+//BlazeServerBuilder
+  val ec = fromExecutorService(Executors.newWorkStealingPool(5))
 //implicit val loggerName=LoggerName("name")
   override protected def blockedThreadDetectionEnabled = true
   private implicit val logger = Slf4jLogger.getLogger[IO]
@@ -56,6 +78,8 @@ object Main extends IOApp {
       false
     ) // set to true for csrf// The default behavior of cross-origin resource requests is for
     // requests to be passed without credentials like cookies and the Authorization header
+    // Cookies are not set on cross-origin requests (CORS) by default. To enable cookies on an API, you will set Access-Control-Allow-Credentials=true.
+    // The browser will reject any response that includes Access-Control-Allow-Origin=*
     .withAllowHeadersIn(Set(ci"X-Csrf-Token", ci"Content-Type"))
 
   def csrfService = CSRF
@@ -67,64 +91,126 @@ object Main extends IOApp {
         // .withCookieName(cookieName)
         .withCookieDomain(Some("localhost"))
         .withCookiePath(Some("/"))
-        // .withCookieSecure(true)// defaults to false
-        // .withCookieHttpOnly(false) //defaults to true
+        .withCookieSecure(true) // defaults to false
+        .withCookieHttpOnly(false) // defaults to true
+        .withCookieName("__HOST-CSRF-TOKEN")
         .build
         .validate()
     )
     .toResource
 
   override def run(args: List[String]): IO[ExitCode] =
-    Supervisor[IO].use { supervisor =>
-      // supervisor.supervise
-      (for {
+    createSSLContext(password)
+      .evalMap { sslContext =>
+        RedisClient[IO]
+          .from("redis://localhost")
+          .use { redisClient =>
+            (for {
 
-        client <- EmberClientBuilder
-          .default[IO]
-          .build
-        redisClient <- RedisClient[IO].from("redis://localhost")
-        redisCommands <- Redis[IO].fromClient[String, UserSession](
-          redisClient,
-          UserSession.userSessionCodec
-        )
-        redisCommandsUtf8 <- Redis[IO].fromClient(
-          redisClient,
-          data.RedisCodec.Utf8
-        )
-        csrfMiddleware <- csrfService
-
-        uuidGen = UUIDGen[IO]
-        tokenService = TokenService.make(redisCommandsUtf8)
-        clientService = ClientService.make(client, tokenService, uuidGen)
-        userSessionService = UserSessionService.make(
-          redisCommands,
-          clientService
-        )
-
-        routes = AuthenticationRoutes(
-          clientService,
-          userSessionService,
-          tokenService,
-          uuidGen
-        )
-
-        _ <- EmberServerBuilder
-          .default[IO]
-          .withHttpApp(
-            csrfMiddleware(
-              ResponseLogger.httpApp(true, true, _ => false)(
-                RequestLogger.httpApp(true, true, _ => false)(
-                  routes.allRoutes.orNotFound
+              client <- EmberClientBuilder
+                .default[IO]
+                .build
+              redisCommands <- Redis[IO]
+                .fromClient[String, UserSession](
+                  redisClient,
+                  UserSession.userSessionCodec
                 )
-              )
-            )
-          )
-          .withPort(port"8097")
-          .withHost(host"127.0.0.1")
-          .build
-          .evalTap(showEmberBanner[IO](_))
+              // .evalOn(ec)
 
-      } yield ()).useForever.as(ExitCode.Success)
-    }
+              redisCommandsUtf8 <- Redis[IO]
+                .fromClient(
+                  redisClient,
+                  data.RedisCodec.Utf8
+                )
+              // .evalOn(ec)
+
+              context = TLSContext.Builder
+                .forAsync[IO]
+                .fromSSLContext(sslContext)
+              // context <- keyStore(password)
+              csrfMiddleware <- csrfService
+
+              uuidGen = UUIDGen[IO]
+              tokenService = TokenService.make(redisCommandsUtf8)
+
+              clientService = ClientService.make(client, tokenService, uuidGen)
+              userSessionService = UserSessionService.make(
+                redisCommands,
+                clientService
+              )
+
+              routes = AuthenticationRoutes(
+                clientService,
+                userSessionService,
+                tokenService,
+                uuidGen
+              )
+              _ <- EmberServerBuilder
+                .default[IO]
+                .withHttpApp(
+                  // csrfMiddleware(
+                  ResponseLogger.httpApp(true, true, _ => false)(
+                    RequestLogger.httpApp(true, true, _ => false)(
+                      HSTS(routes.allRoutes).orNotFound
+                    )
+                  )
+                  // )
+                )
+                .withPort(port"8097")
+                .withHost(host"127.0.0.1")
+                .withTLS(context)
+
+                // .withErrorHandler()//
+                .build
+                .evalTap(showEmberBanner[IO](_))
+
+            } yield ()).useForever
+          }
+      }
+      .compile
+      .drain
+      .as(ExitCode.Success)
+
+  private def createSSLContext(password: String) =
+    Files[IO]
+      .readAll(Path("./src/main/resources/serverkeystore.p12"))
+      .through(toInputStream)
+      .map { inputStream =>
+        val keyStore = KeyStore.getInstance("PKCS12")
+        keyStore.load(inputStream, password.toCharArray())
+        val keyManagerFactory = KeyManagerFactory.getInstance("SunX509")
+        keyManagerFactory.init(keyStore, password.toCharArray())
+
+        // val trustManagerFactory = TrustManagerFactory.getInstance("SunX509")
+        // trustManagerFactory.init(keyStore)
+        val sslContext = SSLContext.getInstance("SSL")
+        sslContext.init(
+          keyManagerFactory.getKeyManagers(),
+          null,
+          // trustManagerFactory.getTrustManagers(),
+          new SecureRandom
+        )
+        sslContext
+      }
+
+  private def keyStore(password: String) = {
+    val load = IO.blocking(
+      getClass.getClassLoader.getResourceAsStream("serverkeystore.p12")
+    )
+    val stream = Resource.make(load)(s => IO.blocking(s.close))
+    stream
+      .map { inputStream =>
+        val keyStore = KeyStore.getInstance("pkcs12")
+        keyStore.load(inputStream, password.toCharArray())
+        (keyStore, password.toCharArray())
+        TLSContext.Builder
+          .forAsync[IO]
+          .fromKeyStore(keyStore, password.toCharArray())
+      }
+  }.flatMap(_.toResource)
+
+  // lazy val tlsParameters= TLSParameters(
+  // cipherSuites = Some(List("TLS_AES_128_GCM_SHA256")),protocols=Some(List("TLSv1.3"))
+  // )
 
 }

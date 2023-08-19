@@ -107,7 +107,8 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
                 List.empty[String],
                 tokenEndpointResponse.accessToken,
                 tokenEndpointResponse.refreshToken,
-                tokenEndpointResponse.refreshExpiresIn
+                tokenEndpointResponse.refreshExpiresIn,
+                tokenEndpointResponse.idToken
               )
             )
             _ <- userSessionService.setUserSession(newSessionId, session)
@@ -177,7 +178,7 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
       path = Some("/"),
       sameSite = Some(SameSite.Strict),
       secure = true,
-      httpOnly = true
+      httpOnly = true,
       // domain = None
       domain = Some("localhost")
     )

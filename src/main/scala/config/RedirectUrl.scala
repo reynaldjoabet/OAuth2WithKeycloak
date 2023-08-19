@@ -8,7 +8,7 @@ object RedirectUrl {
     env("REDIRECT_URL")
       .as[String]
       .default(
-        "http://localhost:8097/callback"
+        "https://localhost:8097/callback"
       )
       .map(RedirectUrl(_))
 }

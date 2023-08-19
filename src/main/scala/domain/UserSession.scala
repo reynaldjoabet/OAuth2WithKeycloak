@@ -17,7 +17,8 @@ final case class UserSession(
     roles: List[String],
     accessToken: String,
     refreshToken: String,
-    expiration: Int
+    expiration: Int,
+    idToken: String
 )
 object UserSession {
   implicit val codec = deriveCodec[UserSession]

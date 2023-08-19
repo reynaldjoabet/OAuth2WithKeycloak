@@ -78,8 +78,11 @@ final case class ClientService[F[_]: Async](
       // Credentials.Token(AuthScheme.Bearer, userSession.accessToken)
       // )
     )
-    _ <- ResponseLogger(true, true)(client).expect[String](request)
-  } yield ()
+    queryParams = Map("id_token_hint" -> userSession.idToken)
+    // _ <- ResponseLogger(true, true)(client).expect[String](request)
+  } yield Uri
+    .unsafeFromString(endSessionEndpoint.value)
+    .withQueryParams(queryParams)
 
   def getUserInfo(accessToken: String): F[UserInfoResponse] = for {
     userInfoEndpoint <- UserInfoEndpoint.userInfoEndpoint.load[F]

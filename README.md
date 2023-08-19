@@ -36,7 +36,6 @@ This hides the complexity of authorization flows from the SPA. A simple API can 
 
 ![Getting Started](./BFF-Sequence.png)
 
-![Getting Started](./backchannellogout.png)
 
 ## Back Channel logout
 In back-channel logout, logout tokens sent directly to your application contain claims to determine which session to end. To use back-channel logout, your application must be able to store and track the session information, including the session ID (sid) claim 
@@ -48,6 +47,8 @@ Applications cannot rely on session cookies to determine which session to termin
 
 When end-users successfully authenticate with Auth0 during login, the authorization server assigns an access, ID, and logout token. The ID and logout token contain the claims you need in the back-channel logout workflow.
 
+![Getting Started](./backchannellogout.png)
+             
 ## The "__Host-" Prefix
 If a cookie's name begins with a case-sensitive match for the string __Host-, then the cookie will have been set with a Secure attribute, a Path attribute with a value of /, and no Domain attribute.
 The __Host- prefix expects cookies to fulfill the following conditions:
@@ -58,6 +59,11 @@ The __Host- prefix expects cookies to fulfill the following conditions:
 4. The cookie must be set with the Pathattribute with a value of / so it would be sent to every request to the host.
 
 This combination yields a cookie that hews as closely as a cookie can to treating the origin as a security boundary. The lack of a Domain attribute ensures that the cookie's host-only-flag is true, locking the cookie to a particular host, rather than allowing it to span subdomains. Setting the Path to / means that the cookie is effective for the entire host, and won't be overridden for specific paths. The Secure attribute ensures that the cookie is unaltered by non-secure origins, and won't span protocols.
+ If cookie has __Host- prefix e.g. Set-Cookie: __Host-token=RANDOM; path=/; Secure then the cookie:
+
+1. Cannot be (over)written from another subdomain.
+2. Must have the path of /.
+3. Must be marked as Secure (i.e, cannot be sent over unencrypted HTTP).
 
 Ports are the only piece of the origin model that __Host- cookies continue to ignore.
 
@@ -72,9 +78,35 @@ While the following would be accepted if set from a secure origin (e.g. "https:/
 
 Set-Cookie: __Host-SID=12345; Secure; Path=/
 
+CNAME records map a domain name to another (canonical) domain name
+
+1. [Auth0](https://auth0.com/docs/authenticate/login/logout/back-channel-logout)
+2. [cloudentity](https://cloudentity.com/developers/blog/adding-oauth-proxy-bff-component-to-spa/)
+3. [SameSite Restrictions](https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions)
 
 
-[Auth0](https://auth0.com/docs/authenticate/login/logout/back-channel-logout)
-[cloudentity](https://cloudentity.com/developers/blog/adding-oauth-proxy-bff-component-to-spa/)
-[SameSite Restrictions](https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions)
+4. [DNS CName Record](https://www.cloudflare.com/learning/dns/dns-records/dns-cname-record/)
+
+5. [DNS A Record](https://www.cloudflare.com/learning/dns/dns-records/dns-a-record/)
+ 
+6. [DNS Server](https://www.cloudflare.com/learning/dns/dns-server-types/#authoritative-nameserver)
+
+7. [Keystore and Trustsore](https://www.baeldung.com/java-keystore-truststore-difference)
+
+
+## Certificate
+``keytool -genkeypair -alias senderKeyPair -keyalg RSA -keysize 2048 
+  -dname "CN=Baeldung" -validity 365 -storetype JKS 
+  -keystore sender_keystore.jks -storepass changeit``
+
+  This creates a private key and its corresponding public key for us. The public key is wrapped into an X.509 self-signed certificate which is wrapped in turn into a single-element certificate chain. We store the certificate chain and the private key in the Keystore file sender_keystore.jks, which we can process using the KeyStore API.
+
+  When using a self-signed certificate, we need only to export it from the Keystore file. We can do this with the exportcert command:
+
+``keytool -exportcert -alias senderKeyPair -storetype JKS 
+  -keystore sender_keystore.jks -file 
+  sender_certificate.cer -rfc -storepass changeit``
+
+  
+
 
