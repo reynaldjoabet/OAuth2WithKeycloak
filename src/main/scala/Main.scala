@@ -44,7 +44,6 @@ import fs2.io.net.tls.TLSContext
 import java.security.KeyStore
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLSocket
-import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManagerFactory
 import java.security.SecureRandom
 import fs2.io.file.Files
@@ -53,15 +52,17 @@ import fs2.io.toInputStream
 import cats.effect.kernel.syntax.resource
 import org.http4s.server.middleware.HSTS
 import fs2.io.net.tls.TLSParameters
-
+import scala.jdk.javaapi.CollectionConverters._
+import javax.net.ssl.SSLContext
 
 object Main extends IOApp {
+
   val password = "password" // .toCharArray()
-//BlazeServerBuilder
+
   val ec = fromExecutorService(Executors.newWorkStealingPool(5))
 //implicit val loggerName=LoggerName("name")
-  override protected def blockedThreadDetectionEnabled = true
-  private implicit val logger = Slf4jLogger.getLogger[IO]
+  // override protected def blockedThreadDetectionEnabled = true
+  implicit private val logger = Slf4jLogger.getLogger[IO]
 
   private def showEmberBanner[F[_]: Logger](s: Server): F[Unit] =
     Logger[F].info(
@@ -71,7 +72,8 @@ object Main extends IOApp {
   val headerName = "X-Csrf-Token" // default
   val cookieName = "csrf-token" // default
 
-  private val corsService = CORS.policy
+  private val corsService = CORS
+    .policy
     .withAllowOriginHost(Set("http://localhost:3000"))
     .withAllowMethodsIn(Set(POST, PUT, GET, DELETE))
     .withAllowCredentials(
@@ -83,9 +85,7 @@ object Main extends IOApp {
     .withAllowHeadersIn(Set(ci"X-Csrf-Token", ci"Content-Type"))
 
   def csrfService = CSRF
-    .withGeneratedKey[IO, IO](request =>
-      CSRF.defaultOriginCheck(request, "localhost", Uri.Scheme.http, None)
-    )
+    .withGeneratedKey[IO, IO](request => CSRF.defaultOriginCheck(request, "localhost", Uri.Scheme.https, None))
     .map(builder =>
       builder
         // .withCookieName(cookieName)
@@ -100,90 +100,95 @@ object Main extends IOApp {
     .toResource
 
   override def run(args: List[String]): IO[ExitCode] =
-    createSSLContext(password)
-      .evalMap { sslContext =>
-        RedisClient[IO]
-          .from("redis://localhost")
-          .use { redisClient =>
-            (for {
+    createSSLContext(password).evalMap { sslContext =>
+      RedisClient[IO]
+        .from("redis://localhost")
+        .use { redisClient =>
+          (for {
 
-              client <- EmberClientBuilder
-                .default[IO]
-                .build
-              redisCommands <- Redis[IO]
-                .fromClient[String, UserSession](
-                  redisClient,
-                  UserSession.userSessionCodec
-                )
-              // .evalOn(ec)
+            client <- EmberClientBuilder
+                        .default[IO]
+                        .build
+            redisCommands <- Redis[IO]
+                               .fromClient[String, UserSession](
+                                 redisClient,
+                                 UserSession.userSessionCodec
+                               )
 
-              redisCommandsUtf8 <- Redis[IO]
-                .fromClient(
-                  redisClient,
-                  data.RedisCodec.Utf8
-                )
-              // .evalOn(ec)
+            redisCommandsUtf8 <- Redis[IO]
+                                   .fromClient(
+                                     redisClient,
+                                     data.RedisCodec.Utf8
+                                   )
 
-              context = TLSContext.Builder
-                .forAsync[IO]
-                .fromSSLContext(sslContext)
-              // context <- keyStore(password)
-              csrfMiddleware <- csrfService
+            context = TLSContext
+                        .Builder
+                        .forAsync[IO]
+                        .fromSSLContext(sslContext)
 
-              uuidGen = UUIDGen[IO]
-              tokenService = TokenService.make(redisCommandsUtf8)
+            csrfMiddleware <- csrfService
 
-              clientService = ClientService.make(client, tokenService, uuidGen)
-              userSessionService = UserSessionService.make(
-                redisCommands,
-                clientService
-              )
+            uuidGen = UUIDGen[IO]
+            tokenService = TokenService.make(redisCommandsUtf8)
 
-              routes = AuthenticationRoutes(
-                clientService,
-                userSessionService,
-                tokenService,
-                uuidGen
-              )
-              _ <- EmberServerBuilder
-                .default[IO]
-                .withHttpApp(
-                  // csrfMiddleware(
-                  ResponseLogger.httpApp(true, true, _ => false)(
-                    RequestLogger.httpApp(true, true, _ => false)(
-                      HSTS(routes.allRoutes).orNotFound
-                    )
-                  )
-                  // )
-                )
-                .withPort(port"8097")
-                .withHost(host"127.0.0.1")
-                .withTLS(context)
+            clientService = ClientService.make(client, tokenService, uuidGen)
+            userSessionService = UserSessionService.make(
+                                   redisCommands,
+                                   clientService
+                                 )
 
-                // .withErrorHandler()//
-                .build
-                .evalTap(showEmberBanner[IO](_))
+            routes = AuthenticationRoutes(
+                       clientService,
+                       userSessionService,
+                       tokenService,
+                       uuidGen
+                     )
+            _ <- EmberServerBuilder
+                   .default[IO]
+                   .withHttpApp(
+                     csrfMiddleware(
+                       ResponseLogger.httpApp(true, true, _ => false)(
+                         RequestLogger.httpApp(true, true, _ => false)(
+                           (routes.allRoutes).orNotFound
+                         )
+                       )
+                     )
+                   )
+                   .withPort(port"8097")
+                   .withHost(host"localhost")
+                   .withTLS(context, tlsParameters)
+                   // .withTLS(context)
+                   // .withTLS(ssl)
+                   // .withHttp2
+                   // .withErrorHandler()//
+                   .build
+                   .evalTap(showEmberBanner[IO](_))
 
-            } yield ()).useForever
-          }
-      }
-      .compile
+          } yield ()).useForever
+        }
+    }.compile
       .drain
       .as(ExitCode.Success)
 
   private def createSSLContext(password: String) =
     Files[IO]
-      .readAll(Path("./src/main/resources/serverkeystore.p12"))
+      .readAll(Path("src/main/resources/serverkeystore.p12"))
+      // .evalTap(IO.println)
       .through(toInputStream)
       .map { inputStream =>
-        val keyStore = KeyStore.getInstance("PKCS12")
+        val keyStore =
+          KeyStore.getInstance("PKCS12") // KeyStore.getDefaultType()
+
         keyStore.load(inputStream, password.toCharArray())
         val keyManagerFactory = KeyManagerFactory.getInstance("SunX509")
         keyManagerFactory.init(keyStore, password.toCharArray())
-
-        // val trustManagerFactory = TrustManagerFactory.getInstance("SunX509")
-        // trustManagerFactory.init(keyStore)
-        val sslContext = SSLContext.getInstance("SSL")
+        // SSLContext.getDefault().getDefaultSSLParameters().getProtocols().foreach(println)
+        // SSLContext.getDefault().getDefaultSSLParameters().getCipherSuites().foreach(
+        // println
+        /// )
+        val trustManagerFactory = TrustManagerFactory.getInstance("SunX509")
+        trustManagerFactory.init(keyStore)
+        val sslContext = SSLContext.getInstance("TLS")
         sslContext.init(
           keyManagerFactory.getKeyManagers(),
           null,
@@ -193,24 +198,33 @@ object Main extends IOApp {
         sslContext
       }
 
+  // Each key store has an overall password used to protect the entire store, and can optionally have per-entry passwords for each secret- or private-key entry (if your backend supports it).
   private def keyStore(password: String) = {
     val load = IO.blocking(
       getClass.getClassLoader.getResourceAsStream("serverkeystore.p12")
     )
     val stream = Resource.make(load)(s => IO.blocking(s.close))
-    stream
-      .map { inputStream =>
-        val keyStore = KeyStore.getInstance("pkcs12")
-        keyStore.load(inputStream, password.toCharArray())
-        (keyStore, password.toCharArray())
-        TLSContext.Builder
-          .forAsync[IO]
-          .fromKeyStore(keyStore, password.toCharArray())
-      }
+    stream.map { inputStream =>
+      val keyStore = KeyStore.getInstance("pkcs12")
+      keyStore.load(inputStream, password.toCharArray())
+      (keyStore, password.toCharArray())
+      TLSContext
+        .Builder
+        .forAsync[IO]
+        .fromKeyStore(keyStore, password.toCharArray())
+    }
   }.flatMap(_.toResource)
 
-  // lazy val tlsParameters= TLSParameters(
-  // cipherSuites = Some(List("TLS_AES_128_GCM_SHA256")),protocols=Some(List("TLSv1.3"))
-  // )
+// in TLS 1.3, TLS_AES_128_CCM_8_SHA256 and TLS_AES_128_CCM_SHA256 are marked as CAN implement
+// TLS_AES_128_GCM_SHA256 MUST implement
+// TLS_AES_256_GCM_SHA384 and TLS_CHACHA20_POLY1305_SHA256 are marked as SHOULD implement
+// jdk 17 implements the MUST and SHOULD
+  lazy val tlsParameters = TLSParameters(protocols =
+    Some(List("TLSv1.3", "TLSv1.2")) // default protocols are 1.2 and 1.3
+  // cipherSuites = Some(List("TLS_AES_128_GCM_SHA256","TLS_AES_256_GCM_SHA384","TLS_CHACHA20_POLY1305_SHA256")))
+  // List("TLS_AES_128_CCM_8_SHA256","TLS_AES_128_CCM_SHA256","TLS_AES_128_GCM_SHA256","TLS_AES_256_GCM_SHA384","TLS_CHACHA20_POLY1305_SHA256")
+  // Unsupported CipherSuite: TLS_AES_128_CCM_8_SHA256
+  // CipherSuite: TLS_AES_128_CCM_SHA256
+  )
 
 }

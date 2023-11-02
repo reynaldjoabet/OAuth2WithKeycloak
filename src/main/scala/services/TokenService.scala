@@ -1,5 +1,4 @@
 package services
-
 import cats.effect.kernel.Async
 import dev.profunktor.redis4cats.RedisCommands
 import scala.concurrent.duration.FiniteDuration

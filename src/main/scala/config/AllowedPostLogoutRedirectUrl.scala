@@ -8,7 +8,7 @@ object AllowedPostLogoutRedirectUrl {
     env("REDIRECT_URL")
       .as[String]
       .default(
-        "http://localhost:8097/callback"
+        "http://localhost:8097/"
       )
       .map(AllowedPostLogoutRedirectUrl(_))
 }

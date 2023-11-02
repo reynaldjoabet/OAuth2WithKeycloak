@@ -44,13 +44,13 @@ final case class ClientService[F[_]: Async](
     state <- uuidGen.randomUUID.map(_.toString())
     _ <- tokenService.setState(state, frontendUrl, 40.seconds)
     queryParams = Map(
-      "response_type" -> "code",
-      "client_id" -> credentials.clientId.value,
-      "redirect_uri" -> redirectUrl.value,
-      "scope" -> scopes,
-      "state" -> state
-      // "response_mode"->"query"
-    )
+                    "response_type" -> "code",
+                    "client_id" -> credentials.clientId.value,
+                    "redirect_uri" -> redirectUrl.value,
+                    "scope" -> scopes,
+                    "state" -> state
+                    // "response_mode"->"query"
+                  )
   } yield Uri
     .unsafeFromString(authorizationEndpoint.value)
     .withQueryParams(queryParams)
@@ -58,27 +58,31 @@ final case class ClientService[F[_]: Async](
   def endUserSessionOnKeycloak(userSession: UserSession) = for {
     credentials <- ClientCredentials.credentials.load[F]
     endSessionEndpoint <- EndSessionEndpoint.endSessionEndpoint.load[F]
-    postLogoutRedirectUrl <- AllowedPostLogoutRedirectUrl.postLogoutRedirectUrl
-      .load[F]
+    postLogoutRedirectUrl <- AllowedPostLogoutRedirectUrl
+                               .postLogoutRedirectUrl
+                               .load[F]
     request = Method.POST(
-      UrlForm(
-        "refresh_token" -> userSession.refreshToken,
-        "client_secret" -> credentials.clientSecret.value,
-        "client_id" -> credentials.clientId.value
-        // "post_logout_redirect_uri" -> postLogoutRedirectUrl.value // Allowed Logout URLs
-      ),
-      Uri.unsafeFromString(endSessionEndpoint.value)
-      // Authorization(
-      // BasicCredentials(
-      // credentials.clientId.value,
-      // credentials.clientSecret.value
-      //  )
-      // )
-      /// Authorization(
-      // Credentials.Token(AuthScheme.Bearer, userSession.accessToken)
-      // )
-    )
-    queryParams = Map("id_token_hint" -> userSession.idToken)
+                UrlForm(
+                  "refresh_token" -> userSession.refreshToken,
+                  "client_secret" -> credentials.clientSecret.value,
+                  "client_id" -> credentials.clientId.value
+                  // "post_logout_redirect_uri" -> postLogoutRedirectUrl.value // Allowed Logout URLs
+                ),
+                Uri.unsafeFromString(endSessionEndpoint.value)
+                // Authorization(
+                // BasicCredentials(
+                // credentials.clientId.value,
+                // credentials.clientSecret.value
+                //  )
+                // )
+                /// Authorization(
+                // Credentials.Token(AuthScheme.Bearer, userSession.accessToken)
+                // )
+              )
+    queryParams = Map(
+                    "id_token_hint" -> userSession.idToken,
+                    "redirect_url" -> postLogoutRedirectUrl.value
+                  )
     // _ <- ResponseLogger(true, true)(client).expect[String](request)
   } yield Uri
     .unsafeFromString(endSessionEndpoint.value)
@@ -87,11 +91,11 @@ final case class ClientService[F[_]: Async](
   def getUserInfo(accessToken: String): F[UserInfoResponse] = for {
     userInfoEndpoint <- UserInfoEndpoint.userInfoEndpoint.load[F]
     request = Method.GET(
-      Uri.unsafeFromString(userInfoEndpoint.value),
-      Authorization(
-        Credentials.Token(AuthScheme.Bearer, accessToken)
-      )
-    )
+                Uri.unsafeFromString(userInfoEndpoint.value),
+                Authorization(
+                  Credentials.Token(AuthScheme.Bearer, accessToken)
+                )
+              )
 
     token <- client.expect[UserInfoResponse](request)
   } yield token
@@ -102,15 +106,15 @@ final case class ClientService[F[_]: Async](
       tokenEndpoint <- TokenEndpoint.tokenEndpoint.load[F]
       redirectUrl <- RedirectUrl.redirectUrl.load[F]
       request = Method.POST(
-        UrlForm(
-          "client_id" -> credentials.clientId.value,
-          "client_secret" -> credentials.clientSecret.value,
-          "code" -> authorizationCode,
-          "grant_type" -> "authorization_code",
-          "redirect_uri" -> redirectUrl.value
-        ),
-        Uri.unsafeFromString(tokenEndpoint.value)
-      )
+                  UrlForm(
+                    "client_id" -> credentials.clientId.value,
+                    "client_secret" -> credentials.clientSecret.value,
+                    "code" -> authorizationCode,
+                    "grant_type" -> "authorization_code",
+                    "redirect_uri" -> redirectUrl.value
+                  ),
+                  Uri.unsafeFromString(tokenEndpoint.value)
+                )
 
       token <- client.expect[TokenEndpointResponse](request)
     } yield token
@@ -120,14 +124,14 @@ final case class ClientService[F[_]: Async](
       tokenEndpoint <- TokenEndpoint.tokenEndpoint.load[F]
       credentials <- ClientCredentials.credentials.load[F]
       request = Method.POST(
-        UrlForm(
-          "client_id" -> credentials.clientId.value,
-          "client_secret" -> credentials.clientSecret.value,
-          "refresh_token" -> refreshToken,
-          "grant_type" -> "refresh_token"
-        ),
-        Uri.unsafeFromString(tokenEndpoint.value)
-      )
+                  UrlForm(
+                    "client_id" -> credentials.clientId.value,
+                    "client_secret" -> credentials.clientSecret.value,
+                    "refresh_token" -> refreshToken,
+                    "grant_type" -> "refresh_token"
+                  ),
+                  Uri.unsafeFromString(tokenEndpoint.value)
+                )
 
       token <- client.expect[TokenEndpointResponse](request)
     } yield token

@@ -8,8 +8,9 @@ import doobie.postgres.implicits._
 import cats.effect.kernel.MonadCancelThrow
 trait DatabaseService[F[_]] {
 
-  /** Create!
-    */
+  /**
+   * Create!
+   */
   def createUser(userId: String): F[Unit]
 
   def createUserSession(
@@ -18,18 +19,20 @@ trait DatabaseService[F[_]] {
       userId: String
   ): F[Unit]
 
-  /** Read!
-    */
+  /**
+   * Read!
+   */
   def getUsers: F[List[User]]
 
   def getUserById(userId: String): F[Option[User]]
 
   def getUserSession(sessionId: String): F[Option[UserSession]]
 
-  /** Delete!
-    *
-    * Returns whether a record was deleted.
-    */
+  /**
+   * Delete!
+   *
+   * Returns whether a record was deleted.
+   */
   def deleteUserSession(sessionId: String): F[Boolean]
 
   def createOrUpdateUser(
@@ -43,13 +46,16 @@ object DatabaseService {
 
   def make[F[_]: MonadCancelThrow](xa: Transactor[F]) = new DatabaseService[F] {
     override def createUser(userId: String): F[Unit] =
-      sql"INSERT into user (userId) VALUES($userId) ON CONFLICT DO NOTHING".update.run
+      sql"INSERT into user (userId) VALUES($userId) ON CONFLICT DO NOTHING"
+        .update
+        .run
         // .withUniqueGeneratedKeys[User]("user_id","created_at")
         .transact(xa)
         .as(())
 
     def createUser1(userId: String): F[User] =
-      sql"INSERT into user (userId) VALUES($userId) ON CONFLICT DO NOTHING".update
+      sql"INSERT into user (userId) VALUES($userId) ON CONFLICT DO NOTHING"
+        .update
         .withUniqueGeneratedKeys[User]("user_id", "created_at")
         .transact(xa)
 
@@ -58,7 +64,9 @@ object DatabaseService {
         refreshToken: String,
         userId: String
     ): F[Unit] =
-      sql"INSERT into user_session (session_id,refresh_token,user_id) VALUES($sessionId,$refreshToken,$userId) ON CONFLICT DO NOTHING".update.run
+      sql"INSERT into user_session (session_id,refresh_token,user_id) VALUES($sessionId,$refreshToken,$userId) ON CONFLICT DO NOTHING"
+        .update
+        .run
         // .withUniqueGeneratedKeys[User]("user_id","created_at")
         .transact(xa)
         .as(())
@@ -68,7 +76,8 @@ object DatabaseService {
         refreshToken: String,
         userId: String
     ): F[UserSession] =
-      sql"INSERT into user_session (session_id,refresh_token,user_id) VALUES($sessionId,$refreshToken,$userId) ON CONFLICT DO NOTHING".update
+      sql"INSERT into user_session (session_id,refresh_token,user_id) VALUES($sessionId,$refreshToken,$userId) ON CONFLICT DO NOTHING"
+        .update
         .withUniqueGeneratedKeys[UserSession](
           "session_id",
           "refresh_token",
@@ -101,7 +110,9 @@ object DatabaseService {
         .transact(xa)
 
     override def deleteUserSession(sessionId: String): F[Boolean] =
-      sql"DELETE from user_session where sessionid= $sessionId".update.run
+      sql"DELETE from user_session where sessionid= $sessionId"
+        .update
+        .run
         .transact(xa)
         .map(_ > 0)
 

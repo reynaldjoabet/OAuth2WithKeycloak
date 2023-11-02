@@ -1,6 +1,5 @@
 package config
 import ciris._
-
 final case class TokenEndpoint(value: String)
 
 object TokenEndpoint {

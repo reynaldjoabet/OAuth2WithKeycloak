@@ -21,6 +21,7 @@ object SessionManagementMiddleware {
 //`[X] =>> List[X]`
 
   object MyFunctor {
+
     val option = new MyFunctor[Option] {
       override def map[A, B](fa: Option[A])(f: A => B): Option[B] = ???
     }

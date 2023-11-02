@@ -12,13 +12,15 @@ val flywayVersion = "9.21.0"
 val postgresVersion = "42.5.4"
 val doobieVersion = "1.0.0-RC4"
 val logbackVersion = "1.4.7"
+val pureConfigVersion = "0.17.4"
 
 def circe(artifact: String): ModuleID =
   "io.circe" %% s"circe-$artifact" % circeVersion
+
 def ciris(artifact: String): ModuleID = "is.cir" %% artifact % cirisVersion
+
 def http4s(artifact: String): ModuleID =
   "org.http4s" %% s"http4s-$artifact" % http4sVersion
-
 
 val circeGenericExtras = circe("generic-extras")
 val circeCore = circe("core")
@@ -42,7 +44,9 @@ val flyway = "org.flywaydb" % "flyway-core" % flywayVersion
 val doobie = "org.tpolecat" %% "doobie-core" % doobieVersion
 val doobie_postgres = "org.tpolecat" %% "doobie-postgres" % doobieVersion
 val logback = "ch.qos.logback" % "logback-classic" % logbackVersion
+//val cirisHocon= "lt.dvim.ciris-hocon" %% "ciris-hocon" % "1.1.0"
 
+val pureConfig = "com.github.pureconfig" %% "pureconfig" % pureConfigVersion
 lazy val root = (project in file("."))
   .settings(
     name := "OAuth2WithKeycloak",
@@ -65,6 +69,8 @@ lazy val root = (project in file("."))
       doobie,
       doobie_postgres,
       postgres,
+      // cirisHocon,
+      pureConfig
     )
   ) //.settings(commonSettings)
 
@@ -89,7 +95,11 @@ addCompilerPlugin(
   "org.typelevel" %% "kind-projector" % "0.13.2" cross CrossVersion.full
 )
 
-run / fork := true
+ThisBuild / run / fork := true
+ThisBuild / fork in Test := true
+
+ThisBuild / fork in IntegrationTest := true
+ThisBuild / fork in Runtime := true
 
 javaOptions ++= Seq(
   // "-J-XX:ActiveProcessorCount=4", // Overrides the automatic detection mechanism of the JVM that doesn't work very well in k8s.
@@ -100,4 +110,7 @@ javaOptions ++= Seq(
   "-Dfile.encoding=UTF-8"
 )
 
+Compile / run / fork := true
 
+Global / onChangedBuildSource := ReloadOnSourceChanges
+Global / semanticdbEnabled := true // for metals

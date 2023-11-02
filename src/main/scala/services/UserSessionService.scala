@@ -48,27 +48,26 @@ object UserSessionService {
       redisCommands.del(sessionId)
 
     private def renewSession(sessionId: String): F[Option[UserSession]] =
-      getUserSession(sessionId)
-        .flatMap {
-          case Some(session) =>
-            clientService
-              .fetchNewAccessToken(session.refreshToken)
-              .uncancelable
-              .map(resp =>
-                Some(
-                  UserSession(
-                    session.sessionId,
-                    session.userId,
-                    List.empty[String],
-                    resp.accessToken,
-                    refreshToken = resp.refreshToken,
-                    resp.expiresIn,
-                    resp.idToken
-                  )
+      getUserSession(sessionId).flatMap {
+        case Some(session) =>
+          clientService
+            .fetchNewAccessToken(session.refreshToken)
+            .uncancelable
+            .map(resp =>
+              Some(
+                UserSession(
+                  session.sessionId,
+                  session.userId,
+                  List.empty[String],
+                  resp.accessToken,
+                  refreshToken = resp.refreshToken,
+                  resp.expiresIn,
+                  resp.idToken
                 )
               )
-          case None => Async[F].pure(None)
-        }
+            )
+        case None => Async[F].pure(None)
+      }
 
     override def setUserSession(
         ket: String,

@@ -12,7 +12,7 @@ object ClientCredentials {
     env("CLIENT_SECRET")
       .as[String]
       .default(
-        "04aEfZgi1n7R1s7VHnFid4kb458JGKSs"
+        "hePDotavZz8HLN9lGqUbNFVRhqQlBXTr"
       )
       .secret
 

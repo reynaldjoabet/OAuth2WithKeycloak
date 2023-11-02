@@ -11,7 +11,6 @@ final case class HttpServerConfig(
 object HttpServerConfig {
   val serverConfig: ConfigValue[Effect, HttpServerConfig] =
     (env("HOST").default("localhost"), env("PORT").as[String].default("8090"))
-      .parMapN((host, port) =>
-        HttpServerConfig(Host.fromString(port), Port.fromString(host))
-      )
+      .parMapN((host, port) => HttpServerConfig(Host.fromString(port), Port.fromString(host)))
+
 }

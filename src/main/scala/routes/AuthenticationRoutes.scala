@@ -45,6 +45,9 @@ import scala.util.Failure
 import org.http4s.server.AuthMiddleware
 import cats.data.OptionT
 import cats.effect.std.UUIDGen
+import org.http4s.circe.CirceEntityDecoder.circeEntityDecoder
+import io.circe.Decoder
+import org.http4s.Challenge
 
 final case class AuthenticationRoutes[F[_]: Async: Console](
     clientService: ClientService[F],
@@ -55,13 +58,13 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
     extends Http4sDsl[F] {
   object CodeParam extends OptionalQueryParamDecoderMatcher[String]("code")
   object StateParam extends OptionalQueryParamDecoderMatcher[String]("state")
-  object FrontendRedirectParam
-      extends OptionalQueryParamDecoderMatcher[String]("redirect")
+
+  object FrontendRedirectParam extends OptionalQueryParamDecoderMatcher[String]("redirect")
 
   val routes: HttpRoutes[F] = HttpRoutes.of[F] {
     case request @ GET -> Root / "login" :? FrontendRedirectParam(redirect) =>
-      (getFrontendRedirectUrl(redirect) product isValidSession(request))
-        .flatMap { case (frontendRedirect, isValid) =>
+      (getFrontendRedirectUrl(redirect) product isValidSession(request)).flatMap {
+        case (frontendRedirect, isValid) =>
           if (isValid)
             Ok()
           // TemporaryRedirect(
@@ -71,10 +74,8 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
             clientService
               .makeKeycloakRedirect(frontendRedirect.value)
               .flatMap(url => TemporaryRedirect(Location(url)))
-        }
-        .recoverWith(_ =>
-          InternalServerError("Failed to generate redirect url.")
-        )
+      }
+        .recoverWith(_ => InternalServerError("Failed to generate redirect url."))
 
     case request @ GET -> Root / "callback" :? CodeParam(code) :? StateParam(
           state
@@ -86,45 +87,46 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
           (for {
             frontendUrlOption <- getFrontendUrlFromState(state)
             frontendUrl <- Async[F].fromOption(
-              frontendUrlOption,
-              InvalidState()
-            )
+                             frontendUrlOption,
+                             InvalidState()
+                           )
             tokenEndpointResponse <- clientService
-              .fetchBearerToken(code)
+                                       .fetchBearerToken(code)
             // .flatTap(token=>Console[F].println(token))
+            idToken <- extractToken[IdToken](
+                         tokenEndpointResponse.idToken
+                       ) // flatTap(Console[F].println)
             // parse access token and id token
-            newSessionId <- uuidGen.randomUUID.flatMap(uuid =>
-              generateSessionId(uuid.toString())
-            )
+            newSessionId <-
+              uuidGen.randomUUID.flatMap(uuid => generateSessionId(uuid.toString()))
             // idToken <- extractIdToken(tokenEndpointResponse.id_token)
             userInfo <- clientService
-              .getUserInfo(tokenEndpointResponse.accessToken)
+                          .getUserInfo(tokenEndpointResponse.accessToken)
             // .flatTap(Console[F].println)
             session <- Async[F].delay(
-              UserSession(
-                newSessionId,
-                userInfo.sub,
-                List.empty[String],
-                tokenEndpointResponse.accessToken,
-                tokenEndpointResponse.refreshToken,
-                tokenEndpointResponse.refreshExpiresIn,
-                tokenEndpointResponse.idToken
-              )
-            )
+                         UserSession(
+                           newSessionId,
+                           userInfo.sub,
+                           List.empty[String],
+                           tokenEndpointResponse.accessToken,
+                           tokenEndpointResponse.refreshToken,
+                           tokenEndpointResponse.refreshExpiresIn,
+                           tokenEndpointResponse.idToken
+                         )
+                       )
             _ <- userSessionService.setUserSession(newSessionId, session)
             response <- TemporaryRedirect(
-              Location(Uri.unsafeFromString(frontendUrl))
-            )
-              .map(_.addCookie(createCookie(newSessionId)))
+                          Location(Uri.unsafeFromString(frontendUrl))
+                        )
+                          .map(_.addCookie(createCookie(newSessionId)))
 
-          } yield response)
-            .recoverWith {
-              case _: InvalidState =>
-                BadRequest("Invalid 'state' query parameter")
-              case error: Throwable =>
-                InternalServerError("Faile to log user in")
+          } yield response).recoverWith {
+            case _: InvalidState =>
+              BadRequest("Invalid 'state' query parameter")
+            case error: Throwable =>
+              InternalServerError("Faile to log user in")
 
-            }
+          }
 
       }
   }
@@ -143,10 +145,10 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
       (for {
         _ <- clientService.endUserSessionOnKeycloak(userSession)
         _ <- (userSessionService.deleteUserSession(
-          userSession.sessionId
-        ) *> logger.info(
-          s"Successfully logged out user ${userSession.userId}"
-        ))
+               userSession.sessionId
+             ) *> logger.info(
+               s"Successfully logged out user ${userSession.userId}"
+             ))
       } yield ())
         .flatMap(_ => Ok())
         .map(_.removeCookie(COOKIE_NAME))
@@ -158,14 +160,22 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
       // if there is a valid session, the user endpoint returns a user object
       (for {
         userInfo <- clientService
-          .getUserInfo(userSession.accessToken)
+                      .getUserInfo(userSession.accessToken)
       } yield userInfo).flatMap(Ok(_))
 
-    case req @ GET -> Root / "backchannel" as userSession =>
+    case req @ POST -> Root / "backchannel" / "logout" as userSession =>
       // we add an implementation of the OpenID Connect back-channel notification endpoint to overcome
       // the restrictions of third party cookies in front-channel notification in modern browsers.
 
-      ??? // back-channel logout notifications.
+      req.req.as[BackChannelLogoutRequest].flatMap { backChannelLogoutRequest =>
+        for {
+          logoutToken <- extractToken[LogoutToken](
+                           backChannelLogoutRequest.logoutToken
+                         )
+        } yield ()
+
+        Ok("")
+      }
 
   }
 
@@ -182,6 +192,7 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
       // domain = None
       domain = Some("localhost")
     )
+
   // TODO: incorporate cookie signing.
   // __Host-XSESSION
   private val COOKIE_NAME = "XSESSION"
@@ -217,7 +228,10 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
     Async[F].delay {
       val mac = MessageDigest.getInstance("SHA3-512")
       val digest = mac.digest(token.getBytes())
-      Base64.getEncoder().encodeToString(digest)
+      // a 160-bit (20 byte) random value that is then URL-safe base64-encoded
+      // byte[] buffer = new byte[20];
+      Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
+      // Base64.getEncoder().encodeToString(digest)
     }
 
   // A regex that defines the JWT pattern and allows us to
@@ -225,10 +239,11 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
   private val jwtRegex = """(.+?)\.(.+?)\.(.+?)""".r
 
   // Splits a JWT into it's 3 component parts
-  private val splitToken: String => Try[(String, String, String)] =
+  private val splitToken: String => Try[String] =
     (token: String) =>
       token match {
-        case jwtRegex(header, body, sig) => Success((header, body, sig))
+        case jwtRegex(header, body, sig) =>
+          Success(new String(Base64.getDecoder.decode(body)))
         case _ =>
           Failure(new Exception("Token does not match the correct pattern"))
       }
@@ -241,40 +256,42 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
   // (Base64.getDecoderdecodeS(header), JwtBase64.decodeString(body), sig)
   // }
 
-  private def extractIdToken(idToken: String): F[Json] =
+  private def extractToken[A](jwtToken: String)(implicit d: Decoder[A]): F[A] =
     Async[F]
-      .fromEither(parser.parse(idToken))
-      .flatTap(a => Console[F].println(a.asString))
+      .fromTry(splitToken(jwtToken))
+      .flatMap { jwtBody =>
+        for {
+          jsonToken <- Async[F].fromEither(parser.parse(jwtBody))
+          token <- Async[F].fromEither(jsonToken.as[A])
+        } yield token
+      }
+      // .flatMap(t=>Async[F].fromEither(parser.parse(t)))
+      // .flatMap(j=>Async[F].fromEither(j.as[A]))
+      .flatTap(t => Console[F].println(t))
 
   // infers properly thanks to kind projector compiler plugin
   // Kleisli[[X]=>>OptionT[F,X],Request[F],UserSession] in scala3
-  /** Int has has a kind of A, String has a kind of A Kleisli[F[_],A,B] this is
-    * a type constructor that takes a type constructor(s). A higher -kinder type
-    * Types like List that take one argument are cakked type constructors List
-    * is a type constructor, a first order kinded type Function1 like Either and
-    * Map are binary type constructors( takes two aruguments) Function1[A,B],
-    * Either[A,B] and Map[A,B] are proper types A=>? is a type constructor that
-    * when you apply a proper type, say X, you get back a function A=>X F[_] is
-    * a type constructor and F[A] is a proper type Higher-kinded types are type
-    * constructors that take other types( or even other type constructors) as
-    * parameter
-    *
-    * trait Functor[F[_]] expects a type constructor with one parameter
-    * Functor[List], Functor[Option] but not Functor[Map] as Map takes 2
-    * parameters(Map[K,V]) while the type parameter to Functor experts one
-    * Partial applications of type constructors We can use type aliases to
-    * partially apply a type constructor and so adapt the kind of the type to be
-    * used type IntkeyMap[A]=Map[Int,A] Functor[IntKeyMap]// works now { type
-    * T[Y] = OptionT[F, Y] } defines a structural type denoted by {} with a type
-    * alias inside { type T[Y] = OptionT[F, Y] })#T defines an anonymous type,
-    * inside of which is defined a type alia and then accessing the type alias
-    * with the # syntax # is type projection, used to reference the type member
-    * T of the structural type { type T[Y] = OptionT[F, Y] })#T is a type lamda
-    * @return
-    */
+  /**
+   * Int has has a kind of A, String has a kind of A. Kleisli[F[_],A,B] this is a type constructor that takes a type
+   * constructor(s). A higher -kinder type Types like List that take one argument are called type constructors. List is
+   * a type constructor, a first order kinded type, Function1 like Either and Map are binary type constructors( takes
+   * two aruguments) Function1[A,B], Either[A,B] and Map[A,B] are proper types. A=>? is a type constructor that when
+   * you apply a proper type, say X, you get back a function A=>X . F[_] is a type constructor and F[A] is a proper
+   * type .Higher-kinded types are type constructors that take other types( or even other type constructors) as
+   * parameter
+   *
+   * trait Functor[F[_]] expects a type constructor with one parameter Functor[List], Functor[Option] but not
+   * Functor[Map] as Map takes 2 parameters(Map[K,V]) while the type parameter to Functor experts one Partial
+   * applications of type constructors We can use type aliases to partially apply a type constructor and so adapt the
+   * kind of the type to be used type IntkeyMap[A]=Map[Int,A] Functor[IntKeyMap]// works now. { type T[Y] = OptionT[F,
+   * Y] } defines a structural type denoted by {} with a type alias inside. { type T[Y] = OptionT[F, Y] })#T defines an
+   * anonymous type, inside of which is defined a type alia and then accessing the type alias with the # syntax # is
+   * type projection, used to reference the type member T of the structural type { type T[Y] = OptionT[F, Y] })#T is a
+   * type lamda
+   * @return
+   */
   // the F[_] becomes OptionT[F,?] and F[B] becomes OptionT[F,UserSession]
-  def authUser1
-      : Kleisli[({ type T[X] = OptionT[F, X] })#T, Request[F], UserSession] =
+  def authUser1: Kleisli[({ type Y[X] = OptionT[F, X] })#Y, Request[F], UserSession] =
     Kleisli { request: Request[F] =>
       extractRequestAuth(request) match {
         case None => OptionT.none[F, UserSession]
@@ -286,13 +303,12 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
   // def authUser3: Kleisli[({ type T[Y] = OptionT[F, Y] })#T, Request[F], UserSession] = new Kleisli[({ type T[Y] = OptionT[F, Y] })#T, Request[F], UserSession]{
 //override val run: Request[F] => OptionT[F,UserSession] = ???
   // }
-  def authUser: Kleisli[OptionT[F, *], Request[F], UserSession] = Kleisli {
-    request: Request[F] =>
-      extractRequestAuth(request) match {
-        case None => OptionT.none[F, UserSession]
-        case Some(sessionId) =>
-          OptionT(userSessionService.getUserSession(sessionId))
-      }
+  def authUser: Kleisli[OptionT[F, *], Request[F], UserSession] = Kleisli { request: Request[F] =>
+    extractRequestAuth(request) match {
+      case None => OptionT.none[F, UserSession]
+      case Some(sessionId) =>
+        OptionT(userSessionService.getUserSession(sessionId))
+    }
   }
 // path dependent type is a subset of type projection
 // you can pass a path dependent type where a projection is needed
@@ -307,6 +323,16 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
   // }
   val sessionMiddleware: AuthMiddleware[F, UserSession] =
     AuthMiddleware[F, UserSession](authUser1)
+
+  val onFailure: AuthedRoutes[Error, F] =
+    Kleisli { request =>
+      OptionT.liftF(
+        Unauthorized.apply(
+          `WWW-Authenticate`(Challenge("Bearer", "issuer.toString"))
+          // errorBody(request.context)
+        )
+      )
+    }
 
   val allRoutes: HttpRoutes[F] = routes <+> sessionMiddleware(routes2)
 
