@@ -23,7 +23,6 @@ final case class UserSession(
 )
 object UserSession {
   implicit val codec = deriveCodec[UserSession]
-  (1 to 100).sliding(4, 2).foreach(println)
   val userSessionSplit = SplitEpi[String, UserSession](
     str => decode[UserSession](str).toOption.get,
     _.asJson.noSpaces

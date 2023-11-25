@@ -36,7 +36,7 @@ import org.http4s.Uri
 import org.http4s.server.middleware.CORS
 import org.typelevel.ci._
 import org.http4s.Method._
-//import scala.concurrent.ExecutionContext.global
+import scala.concurrent.ExecutionContext.global
 import scala.concurrent.ExecutionContext.fromExecutorService
 import java.util.concurrent.Executors
 import org.http4s.headers.Referer
@@ -55,7 +55,7 @@ import fs2.io.net.tls.TLSParameters
 import scala.jdk.javaapi.CollectionConverters._
 import javax.net.ssl.SSLContext
 
-object Main extends IOApp {
+object MainApp extends IOApp {
 
   val password = "password" // .toCharArray()
 
@@ -155,7 +155,7 @@ object Main extends IOApp {
                      )
                    )
                    .withPort(port"8097")
-                   .withHost(host"localhost")
+                   .withHost(host"127.0.0.1")
                    .withTLS(context, tlsParameters)
                    // .withTLS(context)
                    // .withTLS(ssl)
@@ -172,7 +172,7 @@ object Main extends IOApp {
 
   private def createSSLContext(password: String) =
     Files[IO]
-      .readAll(Path("src/main/resources/serverkeystore.p12"))
+      .readAll(Path("src/main/resources/localhost.keystore.p12"))
       // .evalTap(IO.println)
       .through(toInputStream)
       .map { inputStream =>
@@ -201,7 +201,7 @@ object Main extends IOApp {
   // Each key store has an overall password used to protect the entire store, and can optionally have per-entry passwords for each secret- or private-key entry (if your backend supports it).
   private def keyStore(password: String) = {
     val load = IO.blocking(
-      getClass.getClassLoader.getResourceAsStream("serverkeystore.p12")
+      getClass.getClassLoader.getResourceAsStream("localhost.keystore.p12")
     )
     val stream = Resource.make(load)(s => IO.blocking(s.close))
     stream.map { inputStream =>

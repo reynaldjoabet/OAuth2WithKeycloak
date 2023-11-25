@@ -42,3 +42,4 @@ postgres-data
 
 #general
 *.class
+src/main/resources/ca-privateKey

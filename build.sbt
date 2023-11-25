@@ -109,8 +109,11 @@ javaOptions ++= Seq(
   // "-J-XshowSettings:system",      // https://developers.redhat.com/articles/2022/04/19/java-17-whats-new-openjdks-container-awareness#recent_changes_in_openjdk_s_container_awareness_code
   "-Dfile.encoding=UTF-8"
 )
+Compile / run / mainClass := Some("Main")
+ //mainClass in (Compile ,run) := Some("Main")
+// src/main/scala/Main.scala => Some("Main")
+// src/main/scala/com/baeldung/packaging/Main.scala => Some("com.baeldung.packaging.Main")
+// java -jar ./target/scala-2.13/oauth2withkeycloak_2.13-0.1.0-SNAPSHOT.jar   to run
 
 Compile / run / fork := true
 
-Global / onChangedBuildSource := ReloadOnSourceChanges
-Global / semanticdbEnabled := true // for metals

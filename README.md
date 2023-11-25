@@ -129,6 +129,91 @@ Back-channel logout operates as follows:
 3. Keycloak invokes Application 02's logout endpoint, asking it to remove the user's session.
 
 
+TrustStore are used by clients to trust the certificate authority by adding the CA certificate into the truststore
+The KeyStore is used by the server to store mulitple things. For encrypting communication between the client and the server, we need to set up a tls connection, which requires a private and public key
+
+Certifiate authority that contins a private key and a public certificate
+ Use keytool to create truststore
+
+ A keystore when generated has a keypair inside of it( eg RSA)
+ The keystore also needs to contain the application certificate
+
+ Using a cryptographic algorithm, the keys are mathematically connected in such a way that you can derive the public key from the private key, but you cannot take the public key and get its paired private key.
+
+
+
+ ### Generate Certificate Signing Request
+ - `openssl genrsa -out ca.key 2048` Generate a private key
+ - `openssl req -new -key ca.key -out ca.csr`  Generate a CSR
+ - `openssl req -new -newkey rsa:2048 -keyout ca.key -out ca.csr` Generate a private key and a CSR
+
+ When creating the CSR, `openssl` uses the private key to extract the public key and put it in the CSR
+ We can use this command `openssl req -in ca.csr -text -noout` to decode the request(CSR)
+ Use this `openssl req -new -x509 -keyout ca.key -out ca.cert -days $3650` to create a self signed certificate and private key
+ We can use this command `openssl x509 -in ca.cert -text -0nout` to decode the certificate
+ 
+A quick look at the output shows that the issuer and subject are the same,meaning it is self-signed
+We can also see that the Subject Key Identifier and the Authority Key Identifer are the same
+We can also see that CA property is true, which means this is a CA
+
+`openssl genrsa -aes256 -out ca.key 4096` uses aes256 to encrypt the private key( good for CAs)
+
+We can also use the CA private key to generate a CA certificate
+`openssl req -key ca.key -new -x509 -days 3650 -sha256 ca.cert`
+The certificate signing request generated can be signed using the CA privake key as follows
+
+`openssl ca -days 3650 -in ca.csr -out ca.cert extensions server_cert`
+
+We can use `echo "127.0.0.2 www.example.com">> /etc/hosts`
+
+IPv4 reserves all addresses in the range 127.0.0.0 up to 127.255.255.255 for use in loopback testing
+
+ A network interface is the point of connection between a computer and a network. In other words, how the Linux system links up the software side of networking to the hardware side.
+
+ `br0` is a linux bride( virtual bridge) or switch
+
+ The second layer of the OSI model-The data link layer can be split into two sections
+ - Logical Link Control(LLC)
+ - Media Access Control(MAC)
+The Logical link control establishes path for data on the Ethernet to transmit between devices
+The Media Access Control uses hardware addresses that are assigned to network interface cards to identify a specific computer or device to show the source and destination of data transmissions
+
+Ethernet transmits data packets in this data link layer by using an algorithm called CSMA/CD.
+It is used as a standard for Ethernet to reduce data collisions and increase successful data transmission
+The IP address assigned to `lo0` interface is 127.0.0.1
+
+A network interface is a software interface to a networking hardware.
+
+A network interface is how the kernel links up the software side of networking to the hardware side.
+
+Linux kernel distinguishes between two types of network interfaces: physical and virtual.
+There are different kinds of virtual interfaces e.g. Loopback, bridges, VLANs, tunnel interfaces
+LOOPBACK — this interface does not communicate with other hosts. All packets sent through it will be returned
+
+
+`openssl genrsa -aes-256-cbc -out myprivate.key` Specifying a cipher means one wants to encrypt( symmetric) the private key
+The options for AES are aes-128-cbc,aes-128-ecb ,aes-192-cbc       aes-192-ecb,aes-256-cbc,aes-256-ecb
+
+We can then use the private key to derive a public key
+`openssl rsa -in myprivate.key -pubout > mypublic.key` then enter pass phrase for private key
+
+## Docker
+`docker run -it eclipse-temurin:17 bash`
+`apt-get update`
+`apt-get -y install vim`
+
+
+### Starting a Shell in a Running Container
+To start a shell process in a running container, we can use the command:
+- Using -it, we can start up an interactive shell process that is listening to the STDIN
+-  docker exec -it <container-name> /bin/sh
+
+
+
+
+
+
+
 
 
 
