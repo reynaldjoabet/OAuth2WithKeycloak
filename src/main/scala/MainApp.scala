@@ -54,6 +54,15 @@ import org.http4s.server.middleware.HSTS
 import fs2.io.net.tls.TLSParameters
 import scala.jdk.javaapi.CollectionConverters._
 import javax.net.ssl.SSLContext
+import org.http4s.server.middleware.Metrics
+import org.http4s.server.middleware
+import kamon.zipkin.ZipkinReporter
+import kamon.prometheus.PrometheusReporter
+import kamon.Kamon
+import kamon.jaeger.JaegerReporter
+import kamon.jaeger
+import kamon.http4s.middleware.server.KamonSupport
+import kamon.instrumentation.http.HttpServerMetrics
 
 object MainApp extends IOApp {
 
@@ -113,13 +122,13 @@ object MainApp extends IOApp {
                                .fromClient[String, UserSession](
                                  redisClient,
                                  UserSession.userSessionCodec
-                               )
+                               ).evalOn(ec)
 
             redisCommandsUtf8 <- Redis[IO]
                                    .fromClient(
                                      redisClient,
                                      data.RedisCodec.Utf8
-                                   )
+                                   ).evalOn(ec)
 
             context = TLSContext
                         .Builder
@@ -143,13 +152,17 @@ object MainApp extends IOApp {
                        tokenService,
                        uuidGen
                      )
+                      metrics =
+                        Resource.eval(
+                          IO(HttpServerMetrics.of("http4s.server", "/127.0.0.1", 8097))
+                        ).start
             _ <- EmberServerBuilder
                    .default[IO]
                    .withHttpApp(
                      csrfMiddleware(
                        ResponseLogger.httpApp(true, true, _ => false)(
                          RequestLogger.httpApp(true, true, _ => false)(
-                           (routes.allRoutes).orNotFound
+                           (KamonSupport(routes.allRoutes,"/127.0.0.1",8097)).orNotFound
                          )
                        )
                      )
@@ -163,7 +176,9 @@ object MainApp extends IOApp {
                    // .withErrorHandler()//
                    .build
                    .evalTap(showEmberBanner[IO](_))
-
+                   
+                   
+        
           } yield ()).useForever
         }
     }.compile

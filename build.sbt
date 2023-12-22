@@ -14,6 +14,15 @@ val doobieVersion = "1.0.0-RC4"
 val logbackVersion = "1.4.7"
 val pureConfigVersion = "0.17.4"
 
+
+
+def kamon(artifact:String)="io.kamon" %% s"kamon-${artifact}" % "2.6.1"
+val kamonCore=kamon("core")
+val kamonHttp4s=kamon("http4s-0.23")
+val kamonPrometheus=kamon("prometheus")
+val kamonZipkin=kamon("zipkin")
+val kamonJaeger=kamon("jaeger")
+
 def circe(artifact: String): ModuleID =
   "io.circe" %% s"circe-$artifact" % circeVersion
 
@@ -70,10 +79,17 @@ lazy val root = (project in file("."))
       doobie_postgres,
       postgres,
       // cirisHocon,
-      pureConfig
+      pureConfig,
+      kamonCore,
+      kamonHttp4s,
+      kamonPrometheus,
+      kamonZipkin,
+      kamonJaeger
     )
   ) //.settings(commonSettings)
-
+// by default sbt run runs the program in the same JVM as sbt
+//in order to run the program in a different JVM, we add the following
+//fork in run := true
 fork := true
 scalacOptions ++= Seq(
   "-deprecation", // Warning and location for usages of deprecated
