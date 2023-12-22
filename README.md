@@ -210,7 +210,8 @@ To start a shell process in a running container, we can use the command:
 
 
 
-
+## Metrics
+prometheus runs on port 9090
 
 
 
