@@ -63,6 +63,8 @@ import kamon.jaeger.JaegerReporter
 import kamon.jaeger
 import kamon.http4s.middleware.server.KamonSupport
 import kamon.instrumentation.http.HttpServerMetrics
+//import cats.syntax.semigroupk._
+import cats.implicits._
 
 object MainApp extends IOApp {
 
@@ -152,17 +154,18 @@ object MainApp extends IOApp {
                        tokenService,
                        uuidGen
                      )
-                      metrics =
-                        Resource.eval(
-                          IO(HttpServerMetrics.of("http4s.server", "/127.0.0.1", 8097))
-                        ).start
+                      //metrics <-
+                        //Resource.eval(
+                         // IO(HttpServerMetrics.of("http4s.server", "/127.0.0.1", 8097))
+                        //).start
+       allRoutes<-routes.allRoutes
             _ <- EmberServerBuilder
                    .default[IO]
                    .withHttpApp(
                      csrfMiddleware(
                        ResponseLogger.httpApp(true, true, _ => false)(
                          RequestLogger.httpApp(true, true, _ => false)(
-                           (KamonSupport(routes.allRoutes,"/127.0.0.1",8097)).orNotFound
+                           allRoutes.orNotFound
                          )
                        )
                      )

@@ -48,8 +48,14 @@ import cats.effect.std.UUIDGen
 import org.http4s.circe.CirceEntityDecoder.circeEntityDecoder
 import io.circe.Decoder
 import org.http4s.Challenge
+import org.http4s.HttpRoutes
+import org.http4s.metrics.prometheus.Prometheus
+import org.http4s.metrics.prometheus.PrometheusExportService
+import cats.effect.kernel.Resource
+import org.http4s.server.middleware.Metrics
+import cats.effect.kernel.Sync
 
-final case class AuthenticationRoutes[F[_]: Async: Console](
+final case class AuthenticationRoutes[F[_]: Async:Sync: Console](
     clientService: ClientService[F],
     userSessionService: UserSessionService[F],
     tokenService: TokenService[F],
@@ -334,6 +340,19 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
       )
     }
 
-  val allRoutes: HttpRoutes[F] = routes <+> sessionMiddleware(routes2)
 
+
+  private def prometheusReporter(
+     httpRoutes: HttpRoutes[F]
+   ):Resource[F, HttpRoutes[F]] =
+     (for {
+       prometheusExportService <- PrometheusExportService.build[F]
+       prometheusMetricsOps <- Prometheus.metricsOps[F](
+         prometheusExportService.collectorRegistry,
+         "server"
+       )
+     } yield Metrics(prometheusMetricsOps)(httpRoutes) <+> prometheusExportService.routes)
+
+
+     val allRoutes: Resource[F,HttpRoutes[F]] =prometheusReporter(routes).map(routes=>routes<+> sessionMiddleware(routes2))
 }
