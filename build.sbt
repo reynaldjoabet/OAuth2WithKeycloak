@@ -31,6 +31,9 @@ def ciris(artifact: String): ModuleID = "is.cir" %% artifact % cirisVersion
 def http4s(artifact: String): ModuleID =
   "org.http4s" %% s"http4s-$artifact" % http4sVersion
 
+
+ val prometheusMetrics= "org.http4s" %% "http4s-prometheus-metrics" % "0.24.6"
+
 val circeGenericExtras = circe("generic-extras")
 val circeCore = circe("core")
 val circeGeneric = circe("generic")
@@ -84,7 +87,8 @@ lazy val root = (project in file("."))
       kamonHttp4s,
       kamonPrometheus,
       kamonZipkin,
-      kamonJaeger
+      kamonJaeger,
+      prometheusMetrics
     )
   ) //.settings(commonSettings)
 // by default sbt run runs the program in the same JVM as sbt
