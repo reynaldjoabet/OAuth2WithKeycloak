@@ -14,14 +14,12 @@ val doobieVersion = "1.0.0-RC4"
 val logbackVersion = "1.4.7"
 val pureConfigVersion = "0.17.4"
 
-
-
-def kamon(artifact:String)="io.kamon" %% s"kamon-${artifact}" % "2.6.1"
-val kamonCore=kamon("core")
-val kamonHttp4s=kamon("http4s-0.23")
-val kamonPrometheus=kamon("prometheus")
-val kamonZipkin=kamon("zipkin")
-val kamonJaeger=kamon("jaeger")
+def kamon(artifact: String) = "io.kamon" %% s"kamon-${artifact}" % "2.6.1"
+val kamonCore = kamon("core")
+val kamonHttp4s = kamon("http4s-0.23")
+val kamonPrometheus = kamon("prometheus")
+val kamonZipkin = kamon("zipkin")
+val kamonJaeger = kamon("jaeger")
 
 def circe(artifact: String): ModuleID =
   "io.circe" %% s"circe-$artifact" % circeVersion
@@ -31,8 +29,7 @@ def ciris(artifact: String): ModuleID = "is.cir" %% artifact % cirisVersion
 def http4s(artifact: String): ModuleID =
   "org.http4s" %% s"http4s-$artifact" % http4sVersion
 
-
- val prometheusMetrics= "org.http4s" %% "http4s-prometheus-metrics" % "0.24.6"
+val prometheusMetrics = "org.http4s" %% "http4s-prometheus-metrics" % "0.24.6"
 
 val circeGenericExtras = circe("generic-extras")
 val circeCore = circe("core")
@@ -116,10 +113,10 @@ addCompilerPlugin(
 )
 
 ThisBuild / run / fork := true
-ThisBuild / fork /Test := true
+ThisBuild / fork / Test := true
 
 ThisBuild / fork / IntegrationTest := true
-ThisBuild / fork /Runtime := true
+ThisBuild / fork / Runtime := true
 
 javaOptions ++= Seq(
   // "-J-XX:ActiveProcessorCount=4", // Overrides the automatic detection mechanism of the JVM that doesn't work very well in k8s.
@@ -130,10 +127,9 @@ javaOptions ++= Seq(
   "-Dfile.encoding=UTF-8"
 )
 Compile / run / mainClass := Some("Main")
- //mainClass in (Compile ,run) := Some("Main")
+//mainClass in (Compile ,run) := Some("Main")
 // src/main/scala/Main.scala => Some("Main")
 // src/main/scala/com/baeldung/packaging/Main.scala => Some("com.baeldung.packaging.Main")
 // java -jar ./target/scala-2.13/oauth2withkeycloak_2.13-0.1.0-SNAPSHOT.jar   to run
 
 Compile / run / fork := true
-

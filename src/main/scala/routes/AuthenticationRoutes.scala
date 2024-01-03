@@ -53,9 +53,8 @@ import org.http4s.metrics.prometheus.Prometheus
 import org.http4s.metrics.prometheus.PrometheusExportService
 import cats.effect.kernel.Resource
 import org.http4s.server.middleware.Metrics
-import cats.effect.kernel.Sync
 
-final case class AuthenticationRoutes[F[_]: Async:Sync: Console](
+final case class AuthenticationRoutes[F[_]: Async: Console](
     clientService: ClientService[F],
     userSessionService: UserSessionService[F],
     tokenService: TokenService[F],
@@ -340,19 +339,19 @@ final case class AuthenticationRoutes[F[_]: Async:Sync: Console](
       )
     }
 
-
-
   private def prometheusReporter(
-     httpRoutes: HttpRoutes[F]
-   ):Resource[F, HttpRoutes[F]] =
-     (for {
-       prometheusExportService <- PrometheusExportService.build[F]
-       prometheusMetricsOps <- Prometheus.metricsOps[F](
-         prometheusExportService.collectorRegistry,
-         "server"
-       )
-     } yield Metrics(prometheusMetricsOps)(httpRoutes) <+> prometheusExportService.routes)
+      httpRoutes: HttpRoutes[F]
+  ): Resource[F, HttpRoutes[F]] =
+    (for {
+      prometheusExportService <- PrometheusExportService.build[F]
+      prometheusMetricsOps <- Prometheus.metricsOps[F](
+                                prometheusExportService.collectorRegistry,
+                                "server"
+                              )
+    } yield Metrics(prometheusMetricsOps)(httpRoutes) <+> prometheusExportService.routes)
 
+//he extension method can be imported via import cats.implicits._.
 
-     val allRoutes: Resource[F,HttpRoutes[F]] =prometheusReporter(routes).map(routes=>routes<+> sessionMiddleware(routes2))
+//It comes from SemigroupK, which can be derived for any OptionT given a Monad for F
+  val allRoutes: Resource[F, HttpRoutes[F]] = prometheusReporter(routes).map(_ <+> sessionMiddleware(routes2))
 }

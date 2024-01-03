@@ -100,18 +100,24 @@ CNAME records map a domain name to another (canonical) domain name
 
 This creates a private key and its corresponding public key for us. The public key is wrapped into an X.509 self-signed certificate which is wrapped in turn into a single-element certificate chain. We store the certificate chain and the private key in the Keystore file sender_keystore.jks, which we can process using the KeyStore API.
 
-  ``keytool -genkey -alias serverkey -keyalg RSA -keysize 2048 -sigalg SHA256withRSA -keystore serverkeystore.p12 -storepass password -ext san=ip:127.0.0.1,dns:localhost -validity 3650 -keypass password``
+  ```bash
+  keytool -genkey -alias serverkey -keyalg RSA -keysize 2048 -sigalg SHA256withRSA -keystore serverkeystore.p12 -storepass password -ext san=ip:127.0.0.1,dns:localhost -validity 3650 -keypass password
+  ```
 
 A SAN or subject alternative name is a structured way to indicate all of the domain names and IP addresses that are secured by the certificate.Originally, SSL certificates only allowed the designation of a single host name in the certificate subject called Common Name.The common name represents the host name that’s covered by the SSL certificate. The most common example is a single certificate covering both the root domain and the www subdomain. In fact, it’s common to reuse the same SSL certificate for example.com and www.example.com.
 We use the keytool -ext option to set the Subject Alternative Names (SAN) to define the local hostname/IP address that identifies the server
 Next, we export the certificate to the file server-certificate.pem:
 
-``keytool -exportcert -keystore serverkeystore.p12 -alias serverkey -storepass password -rfc -file server-certificate.pem``
+```bash
+keytool -exportcert -keystore serverkeystore.p12 -alias serverkey -storepass password -rfc -file server-certificate.pem
+```
 When using a self-signed certificate, we need only to export it from the Keystore file. We can do this with the exportcert command:
 
-``keytool -exportcert -alias senderKeyPair -storetype JKS 
+```bash
+keytool -exportcert -alias senderKeyPair -storetype JKS 
   -keystore sender_keystore.jks -file 
-  sender_certificate.cer -rfc -storepass changeit``
+  sender_certificate.cer -rfc -storepass changeit
+  ```
 
   Public certificate can have the following common file extensions:
 
@@ -198,9 +204,11 @@ We can then use the private key to derive a public key
 `openssl rsa -in myprivate.key -pubout > mypublic.key` then enter pass phrase for private key
 
 ## Docker
-`docker run -it eclipse-temurin:17 bash`
-`apt-get update`
-`apt-get -y install vim`
+```bash
+docker run -it eclipse-temurin:17 bash
+apt-get update
+apt-get -y install vim
+```
 
 
 ### Starting a Shell in a Running Container
@@ -208,7 +216,58 @@ To start a shell process in a running container, we can use the command:
 - Using -it, we can start up an interactive shell process that is listening to the STDIN
 -  docker exec -it <container-name> /bin/sh
 
+Using OIDC for authentication and OAuth2.0 for authorization help provides a complete protocol for securely determining who a client is ,what they are allowed to access and what actions they are allowed to perform
 
+Okta,Auth 0 have their implementatons of these protocols
+
+```bash
+# Password used for all the certs, keys, and stores
+PASS=test1234
+# Broker server host
+SERVER_HOST=localhost
+# Client server host
+CLIENT_HOST=localhost
+
+# Create the root CA
+openssl req -new -x509 -keyout ca-key -out ca-cert -days 365 \
+-passout pass:$PASS -batch \
+-subj "/C=US/ST=Oregon/L=Portlad/O=Okta/CN=CARoot"
+
+# Import the root CA into server truststore
+keytool -keystore server.truststore.jks -alias CARoot -import -file ca-cert -storepass $PASS -noprompt
+
+# Import the root CA into the client truststore
+keytool -keystore client.truststore.jks -alias CARoot -import -file ca-cert -storepass $PASS -noprompt
+
+# Create the server keystore with a private key and unsigned certificate.
+keytool -keystore server.keystore.jks -alias server \
+-validity 365 -keyalg RSA -genkey -storepass $PASS -ext SAN=DNS:$SERVER_HOST \
+-dname "CN=$SERVER_HOST,OU=Kafka-Spring,O=Okta,L=Portland,S=Oregon,C=US"
+
+# Export server cert
+keytool -keystore server.keystore.jks -alias server -certreq -file cert-file-server -storepass $PASS
+
+# Sign the server cert with the root CA
+openssl x509 -req -CA ca-cert -CAkey ca-key -in cert-file-server -out cert-signed-server -days 365 -CAcreateserial -passin pass:$PASS
+
+# Import server cert and root CA into server keystore
+keytool -keystore server.keystore.jks -alias CARoot -import -file ca-cert -storepass $PASS -noprompt
+keytool -keystore server.keystore.jks -alias server -import -file cert-signed-server -storepass $PASS -noprompt
+
+keytool -keystore client.keystore.jks -alias client \
+-validity 365 -keyalg RSA -genkey -storepass $PASS -ext SAN=DNS:$CLIENT_HOST \
+-dname "CN=$CLIENT_HOST,OU=Kafka-Spring,O=Okta,L=Portland,S=Oregon,C=US"
+
+# Export client cert
+keytool -keystore client.keystore.jks -alias client -certreq -file cert-file-client -storepass $PASS
+
+# Sign the client cert
+openssl x509 -req -CA ca-cert -CAkey ca-key -in cert-file-client -out cert-signed-client -days 365 -CAcreateserial -passin pass:$PASS
+
+# Import client cert and CA into client keystore
+keytool -keystore client.keystore.jks -alias CARoot -import -file ca-cert -storepass $PASS -noprompt
+keytool -keystore client.keystore.jks -alias client -import -file cert-signed-client -storepass $PASS -noprompt
+```
 
 ## Metrics
 prometheus runs on port 9090
