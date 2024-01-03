@@ -23,7 +23,7 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        #cache: 'sbt'
+        cache: 'sbt'
     - name: Build project
       run: sbt compile
       # Optional: This step uploads information to the GitHub dependency graph and unblocking Dependabot alerts for the repository
