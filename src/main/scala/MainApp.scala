@@ -103,7 +103,7 @@ object MainApp extends IOApp {
         .withCookieDomain(Some("localhost"))
         .withCookiePath(Some("/"))
         .withCookieSecure(true) // defaults to false
-        .withCookieHttpOnly(false) // defaults to true
+        .withCookieHttpOnly(true) // defaults to true
         .withCookieName("__HOST-CSRF-TOKEN")
         .build
         .validate()
@@ -124,13 +124,15 @@ object MainApp extends IOApp {
                                .fromClient[String, UserSession](
                                  redisClient,
                                  UserSession.userSessionCodec
-                               ).evalOn(ec)
+                               )
+                               .evalOn(ec)
 
             redisCommandsUtf8 <- Redis[IO]
                                    .fromClient(
                                      redisClient,
                                      data.RedisCodec.Utf8
-                                   ).evalOn(ec)
+                                   )
+                                   .evalOn(ec)
 
             context = TLSContext
                         .Builder
@@ -154,11 +156,11 @@ object MainApp extends IOApp {
                        tokenService,
                        uuidGen
                      )
-                      //metrics <-
-                        //Resource.eval(
-                         // IO(HttpServerMetrics.of("http4s.server", "/127.0.0.1", 8097))
-                        //).start
-       allRoutes<-routes.allRoutes
+            // metrics <-
+            // Resource.eval(
+            // IO(HttpServerMetrics.of("http4s.server", "/127.0.0.1", 8097))
+            // ).start
+            allRoutes <- routes.allRoutes
             _ <- EmberServerBuilder
                    .default[IO]
                    .withHttpApp(
@@ -179,9 +181,7 @@ object MainApp extends IOApp {
                    // .withErrorHandler()//
                    .build
                    .evalTap(showEmberBanner[IO](_))
-                   
-                   
-        
+
           } yield ()).useForever
         }
     }.compile
