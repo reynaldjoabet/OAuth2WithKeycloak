@@ -28,11 +28,7 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-<<<<<<< Updated upstream
-        cache: 'sbt'
-=======
         cache: 'sbt' #You can speed up your sbt builds on GitHub Actions by caching various artifacts in-between the jobs.
->>>>>>> Stashed changes
     - name: Build project
       run: sbt test
   scala-steward:
