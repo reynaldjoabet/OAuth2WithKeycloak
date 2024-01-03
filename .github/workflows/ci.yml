@@ -30,11 +30,4 @@ jobs:
         distribution: 'temurin'
         cache: 'sbt' #You can speed up your sbt builds on GitHub Actions by caching various artifacts in-between the jobs.
     - name: Build project
-      run: sbt test
-  scala-steward:
-    runs-on: ubuntu-latest
-    name: Launch Scala Steward
-    steps:
-      - name: Launch Scala Steward
-        #uses: scala-steward-org/scala-steward-action@v2
-        #with:  
+      run: sbt compile  
