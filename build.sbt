@@ -113,10 +113,10 @@ addCompilerPlugin(
 )
 
 ThisBuild / run / fork := true
-ThisBuild / fork / Test := true
+ThisBuild / fork / test := true
 
-ThisBuild / fork / IntegrationTest := true
-ThisBuild / fork / Runtime := true
+ThisBuild / fork in IntegrationTest := true
+ThisBuild / fork in Runtime := true
 
 javaOptions ++= Seq(
   // "-J-XX:ActiveProcessorCount=4", // Overrides the automatic detection mechanism of the JVM that doesn't work very well in k8s.
