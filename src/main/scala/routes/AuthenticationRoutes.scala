@@ -53,6 +53,7 @@ import org.http4s.metrics.prometheus.Prometheus
 import org.http4s.metrics.prometheus.PrometheusExportService
 import cats.effect.kernel.Resource
 import org.http4s.server.middleware.Metrics
+import org.http4s.server.Router
 
 final case class AuthenticationRoutes[F[_]: Async: Console](
     clientService: ClientService[F],
@@ -224,7 +225,8 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
     extractRequestAuth(request).fold(Async[F].delay(false)) { sessionId =>
       userSessionService
         .getUserSession(sessionId)
-        .flatMap(userSession => Async[F].delay(userSession.isDefined))
+        .map(_.isDefined)
+        // .flatMap(userSession => Async[F].delay(userSession.isDefined))
         .recoverWith(_ => Async[F].delay(false))
     }
   }
@@ -329,6 +331,8 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
   val sessionMiddleware: AuthMiddleware[F, UserSession] =
     AuthMiddleware[F, UserSession](authUser1)
 
+  val sessionMiddleware1 =
+    AuthMiddleware.noSpider[F, UserSession](authUser1, onFailure3)
   val onFailure: AuthedRoutes[Error, F] =
     Kleisli { request =>
       OptionT.liftF(
@@ -338,6 +342,12 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
         )
       )
     }
+
+  def onFailure3: Request[F] => F[Response[F]] = (request: Request[F]) =>
+    Unauthorized.apply(
+      `WWW-Authenticate`(Challenge("Bearer", "issuer.toString")),
+      request.body
+    )
 
   private def prometheusReporter(
       httpRoutes: HttpRoutes[F]
@@ -353,5 +363,9 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
 //he extension method can be imported via import cats.implicits._.
 
 //It comes from SemigroupK, which can be derived for any OptionT given a Monad for F
-  val allRoutes: Resource[F, HttpRoutes[F]] = prometheusReporter(routes).map(_ <+> sessionMiddleware(routes2))
+  val combinedRoutes = Router(
+    "/api" -> routes,
+    "/auth" -> sessionMiddleware(routes2)
+  )
+  val allRoutes: Resource[F, HttpRoutes[F]] = prometheusReporter(combinedRoutes)
 }

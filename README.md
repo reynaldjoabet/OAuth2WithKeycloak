@@ -272,11 +272,651 @@ keytool -keystore client.keystore.jks -alias client -import -file cert-signed-cl
 ## Metrics
 prometheus runs on port 9090
 
+```bash 
+ curl https://localhost:8097/metrics --cacert ./src/main/resources/ca-cert  
+```
+
+
+
+## RBAC
+About managing access to resources
+roles have permissions
+
+Permissions are granted to roles which gives access to capability
+then roles are assigned to users
+groups are a better way
+
+We can categorize Access Control Model into three types:
+
+- Role-based Access Control (RBAC)
+- Access Control Lists (ACL)
+- Attribute-based Access Control (ABAC)
+
+ACL is a good alternative
+
+A role is a collection of actions that the assigned identity will be able to perform
+
+
+A user has many roles and a role has many permissions
+ ## MFA
+uri=/Type(hotp or totp) / label?secret & issuer
+
+ [Hotp vs totp](https://www.youtube.com/watch?v=XYVrnZK5MAU)
+## Tech
+- Scala 3 (for logic)
+- Cats (for functional)
+- FS2 (for streaming)
+- Http4s (for rest etc)
+- Doobie
+- Postgres
+- Redis( Redis4Cats)
+- Tapir (for swagger) ?
+- sbt (for build)
+
+
+## What is an algebra?
+An algebra is a collection of functions operating over some data types, along with a set of laws specifying relationships between these functions
+What makes an API into an Algebra
+
+- Boobean Algebra
+- Relational Algebra
+
+
+## 
+
+ Different interfaces allow a device to connect with various other devices and systems. For example, a computer may have USB ports, HDMI ports, and Ethernet ports to connect to different types of peripherals and networks.
+
+ Default Route: In the context of routing tables, 0.0.0.0 is often used as the default route. When a device has a route entry with the destination address 0.0.0.0, it indicates that any IP address that does not match a more specific route should use this default route. In other words, 0.0.0.0 is a wildcard or placeholder for any destination IP address not covered by more specific routes.
+
+ Binding to All Available Network Interfaces: In certain network configurations, using 0.0.0.0 as the IP address can signify that a service or application should bind or listen on all available network interfaces on a device. For example, a server application configured to listen on 0.0.0.0 will accept incoming connections on all network interfaces, whether they are associated with a specific IP address or not.
+
+ DHCP Client Request: In the context of DHCP (Dynamic Host Configuration Protocol), a client may use 0.0.0.0 as its source IP address when initially requesting an IP address assignment from a DHCP server. This is part of the DHCP discovery process where the client does not yet have a valid IP address.
+
+Interfaces are networking communication points for your computer. Each interface is associated with a physical or virtual networking device.
+
+Typically, your server will have one configurable network interface for each Ethernet or wireless internet card you have.
+
+Many times, administrators configure one interface to service traffic to the internet and another interface for a LAN or private network.
+
+In datacenters with private networking enabled (including DigitalOcean Droplets), your VPS will have two networking interfaces. The “eth0” interface will be configured to handle traffic from the internet, while the “eth1” interface will operate to communicate with a private network
+
+When you create the socket and bind it to that address, the system uses the associated interface.
 
 
 
 
+```java
+/**
+ * This class represents a Network Interface made up of a name,
+ * and a list of IP addresses assigned to this interface.
+ * It is used to identify the local interface on which a multicast group
+ * is joined.
+ *
+ * Interfaces are normally known by names such as "le0".
+ *
+ * @since 1.4
+ */
+public final class NetworkInterface {
+    private String name;
+    private String displayName;
+    private int index;
+    private InetAddress addrs[];
+    private InterfaceAddress bindings[];
+    private NetworkInterface childs[];
+    private NetworkInterface parent = null;
+    private boolean virtual = false;
+    private static final NetworkInterface defaultInterface;
+    private static final int defaultIndex; /* index of defaultInterface */
+}
 
-  
+```
+For instance eth0:1 will be a subinterface to eth0.
 
 
+
+A network interface having multiple IP addresses can serve various purposes, and there are several scenarios where this might be beneficial:
+
+Virtual Hosting:
+
+In a web hosting environment, a single physical server may host multiple websites. Each website can be associated with a unique IP address, allowing the server to distinguish between the different hosted domains. This is known as virtual hosting.
+Network Segmentation:
+
+Multiple IP addresses on a network interface can be used to segment a network. Different IP subnets may be assigned to different segments of a network, helping in organizing and managing network traffic effectively.
+Load Balancing:
+
+Multiple IP addresses can be associated with a server that is part of a load-balanced cluster. Load balancers distribute incoming traffic across multiple servers to ensure optimal resource utilization and prevent overloading a single server.
+Failover and High Availability:
+
+In a high-availability setup, a network interface with multiple IP addresses can be used to implement failover. If one server fails, traffic can be redirected to another server with a different IP address, ensuring continuous service availability.
+Virtualization:
+In virtualized environments, a physical server may host multiple virtual machines (VMs), each with its own IP address. This allows VMs to operate independently, as if they were running on separate physical machines.
+IP Alias and Network Testing:
+
+Multiple IP addresses can be assigned to a network interface for testing purposes or to simulate multiple network configurations. This can be useful for developers and network administrators during testing and troubleshooting.
+Service Differentiation:
+
+Different services on a server may be associated with different IP addresses. For example, a server may have one IP address for web services, another for email, and another for database services.
+Security and Access Control:
+Assigning different IP addresses to specific services or applications can help in implementing access control and security policies. Firewalls and access control lists (ACLs) can be configured based on IP addresses to control traffic.
+IPv6 Transition:
+
+During the transition from IPv4 to IPv6, a network interface may have both IPv4 and IPv6 addresses. This allows compatibility with both addressing schemes and facilitates a smoother transition to the newer protocol.
+Network Address Translation (NAT):
+
+In scenarios where Network Address Translation is employed, a network interface might have multiple IP addresses, including private addresses for internal communication and a public address for external communication. NAT translates between these addresses to allow internal devices to communicate with external networks.
+
+Virtual network interfaces can be created on a computer for various purposes, such as virtualization or network tunneling.
+
+a network interface is the point of interconnection between a device and any of its network connections
+Of course, systems often have multiple active network connections, such as wired ethernet, WIFI, Bluetooth, etc.
+
+subinterfaces (also known as virtual interfaces) attached to this network interface
+
+A NetworkInterface object contains a name and a set of IP addresses assigned to it. So binding to any of these addresses will guarantee communication through this interface.
+
+
+
+In the bridge mode, a virtual machine connects to the physical network directly through the host physical NIC. In this mode, the host's NIC is a bridge to all VMs
+
+VMs obtain IP addressing information from a DHCP server on the physical network. A VM  appears to other nodes as just another computer on the network
+
+
+The host computer can also act as a NAT device. In this mode, a virtual DHCP server is responsible for assigning IP addressing information to VMs, forming a private network. Other machines on the physical network are getting IP addressn information from the physical DHCP server
+
+
+Bridge (docker0)
+
+A container connects to this network when it starts running without specifying a network. Containers connected to the bridge network are given an internal IP address to communicate with each other
+
+
+Host
+A container shares the networking namespace of the host when using the host network mode. As a result, the host's IP address and port will be used by the container to isolate and execute the process directly on the host.
+
+
+`docker network create -d macvlan --subnet=192.168.0.0/24 --gateway=192.168.0.1 -o parent=eth0 demo-macvlan`
+
+he output below demonstrates that the new 'demo-macvlan' network is set up with the subnet '192.168.0.0/24' gateway '192.168.0.1' and parent interface 'eth0'. Specifying 'eth0' as the parent interface indicates that the Macvlan network will use the physical network interface eth0 of the Docker host to connect to the external network:
+
+iptables is the standard Linux packet filtering tool. Rules added to iptables define how traffic is routed as it passes through your host’s network stack. Docker networks add filtering rules which direct matching traffic to your container’s application. The rules are automatically configured, so you don’t need to manually interact with iptables
+
+Whereas Docker achieves network isolation using namespaces and iptables rules, VMs typically run a separate networking stack for each virtual machine. There are also differences in terminology that can cause confusion: what Docker calls a “bridge” network is similar to a NAT-based network in most VM solutions.
+
+
+binds to the address and the address tells it which interface to activate and start listening on
+
+
+A tunnel is a virtual interface- not backed by hardware
+A computer can have many network interfaces, and each interface can be assigned to multiple IP addresses. The IP address may or may not be reachable outside the machine
+
+
+Reification allows you to work with types as first-class values during runtime, providing more flexibility and capabilities for generic programming.
+
+In Scala, reification is often associated with the concept of type tags, which allow you to carry type information about a generic type at runtime. This can be relevant when dealing with generics and avoiding type erasure, where generic type information is not available at runtime due to compilation.
+
+
+
+  Cookies & Domains
+
+Similarly, cookies can only be set for specific domains. Browsers will ignore/omit cookies set for a different domain than the one a site is currently on. However, our backend and frontend domains may be different. In our case, since we want to make use of cookies, we need a common root domain, which will allow subdomains to share cookies. We’ll use cookies for authentication with the backend - the regular old use case for cookies - but across subdomains. You can’t use cookies across 2 totally different domains - browsers won’t let you.
+
+In order to authenticate, your SPA and API must share the same top-level domain. However, they may be placed on different subdomains.
+
+
+Subnetting allows large networks to be divided into smaller, more manageable sub-networks. Each subnet operates as a separate network with its own range of IP addresses.
+
+Subnets also define broadcast domains. Devices within the same subnet can communicate directly with each other using Layer 2 broadcasts, while devices in different subnets require routing to communicate.
+
+In traditional subnetting, all subnets within a network use the same subnet mask. However, Variable-Length Subnet Masking (VLSM) allows different subnets to have different subnet masks. This is particularly useful when you have subnets of varying sizes within the same larger network.
+
+For example, if you have a network with the address range 192.168.1.0/24, you can use VLSM to create subnets with different subnet masks. One subnet might use 192.168.1.0/26 for smaller subnets, while another might use 192.168.1.64/27 for slightly larger subnets.
+For instance, in a network with the address range 192.168.1.0/24, you might use a /26 subnet for a department with a large number of hosts and a /30 subnet for point-to-point links.
+Consider the IP address range 192.168.1.0/24 with a subnet mask of 255.255.255.0. If you subnet this into smaller networks, you might have:
+
+Subnet 1: 192.168.1.0/26 (64 addresses, 62 usable)
+Subnet 2: 192.168.1.64/26 (64 addresses, 62 usable)
+Subnet 3: 192.168.1.128/26 (64 addresses, 62 usable)
+Subnet 4: 192.168.1.192/26 (64 addresses, 62 usable)
+
+
+Network Address Translation (NAT):
+Network Address Translation is a technique used to map private IP addresses to a single public IP address, allowing multiple devices within a private network to share a single public IP address.
+In NAT, the network address is
+
+Class A: 10.0.0.0 to 10.255.255.255
+Class B: 172.16.0.0 to 172.31.255.255
+Class C: 192.168.0.0 to 192.168.255.255
+
+Class A Private range has  256*256*256 (16,777,216) IP addresses
+
+Class B has 16*256*256 (1,048,576) IP addresses
+
+Class C has 256*256(65,536) IP addresses
+ 
+ The subnet mask determines the size of each subnet. As you create smaller subnets, the number of available IP addresses in each subnet decreases, but you gain more subnets to organize your network effectively.
+ The number of bits borrowed determines the size of each subnet and the number of subnets that can be created.
+
+ Subnets are created by dividing a larger IP address range into smaller, more manageable segments. The process of subnetting involves borrowing bits from the host portion of an IP address and allocating them for use as the subnet identifier. The number of bits borrowed determines the size of each subnet and the number of subnets that can be created.
+
+
+Start with a larger IP address range, often represented in CIDR notation (e.g., 192.168.1.0/24).
+
+we need more zeros to have more hosts and for more networks, we need more network bits
+
+ 
+172.17.0.0/20
+
+172.17.0.0 -172.17.15.255( subnet)
+we have 2^11 IP addresses ie 4096 if we divide 4096 by 256, we have 16
+
+172.17.16.0-172.17.31.255(subnet)
+
+TCP/IP 
+Application Layer protocols
+- HTTP
+- SSH
+- Telnet
+- DHCP
+- DNS
+- SMTP
+- FTP
+
+Transport Layer
+- TCP
+- UDP
+
+
+Network Layer protocols
+
+- ARP(Address Resolution Protocol)
+- IP
+- RARP( Reverse Address Resolution Protocol)
+
+Data Link Layer Protocol
+- Ethernet
+- WiFi
+Physical layer
+
+- Bluetooth
+
+Switch,bridges is a layer two device while router is a layer three device(network) and hub is layer 1
+
+A different network is indicated by its network id
+ `http:localhost:9090/api/sessions/oauth/google`
+
+
+Grant types are used to authenticate an application
+
+```scala
+case class OAuthClient(clientId: String, clientSecret: String, redirectUri: String)
+
+  case class OAuthToken(accessToken: String, refreshToken: String)
+
+  var clients = Map(
+    "client1" -> OAuthClient("client1", "secret1", "http://localhost:8080/callback")
+  )
+  var authorizationCodes = Map.empty[String, OAuthClient]
+  ```
+  client and token have a one to many relationship
+
+```sql
+-- Create OAuthClient table
+CREATE TABLE OAuthClient (
+    clientId TEXT PRIMARY KEY,
+    clientSecret TEXT,
+    redirectUri TEXT
+);
+
+-- Insert data into OAuthClient table
+INSERT INTO OAuthClient (clientId, clientSecret, redirectUri)
+VALUES ('client1', 'secret1', 'http://localhost:8080/callback');
+
+-- Create OAuthToken table with a foreign key reference to OAuthClient
+CREATE TABLE OAuthToken (
+    accessToken TEXT PRIMARY KEY,
+    refreshToken TEXT,
+    clientId TEXT,
+    FOREIGN KEY (clientId) REFERENCES OAuthClient(clientId)
+);
+
+-- Insert data into OAuthToken table
+-- Assuming accessToken and refreshToken are generated dynamically, and clientId is the associated client
+INSERT INTO OAuthToken (accessToken, refreshToken, clientId)
+VALUES ('access_token_123', 'refresh_token_123', 'client1');
+
+
+-- Insert more data into OAuthClient table
+INSERT INTO OAuthClient (clientId, clientSecret, redirectUri)
+VALUES
+    ('client2', 'secret2', 'http://example.com/callback'),
+    ('client3', 'secret3', 'http://example.org/callback');
+
+-- Insert more data into OAuthToken table
+INSERT INTO OAuthToken (accessToken, refreshToken, clientId)
+VALUES
+    ('access_token_456', 'refresh_token_456', 'client2'),
+    ('access_token_789', 'refresh_token_789', 'client3');
+
+
+-- Create AuthorizationCode table
+CREATE TABLE AuthorizationCode (
+    code TEXT PRIMARY KEY,
+    clientId TEXT,
+    FOREIGN KEY (clientId) REFERENCES OAuthClient(clientId)
+);
+
+-- Insert data into AuthorizationCode table
+-- Assuming code is generated dynamically, and clientId is the associated client
+INSERT INTO AuthorizationCode (code, clientId)
+VALUES
+    ('auth_code_123', 'client1'),
+    ('auth_code_456', 'client2');
+
+-- Create OAuthClient table
+CREATE TABLE OAuthClient (
+    clientId TEXT PRIMARY KEY,
+    clientSecret TEXT,
+    redirectUri TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert data into OAuthClient table
+INSERT INTO OAuthClient (clientId, clientSecret, redirectUri)
+VALUES
+    ('client1', 'secret1', 'http://localhost:8080/callback'),
+    ('client2', 'secret2', 'http://example.com/callback'),
+    ('client3', 'secret3', 'http://example.org/callback');
+
+-- Create OAuthToken table
+CREATE TABLE OAuthToken (
+    accessToken TEXT PRIMARY KEY,
+    refreshToken TEXT,
+    clientId TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (clientId) REFERENCES OAuthClient(clientId)
+);
+
+-- Insert data into OAuthToken table
+INSERT INTO OAuthToken (accessToken, refreshToken, clientId)
+VALUES
+    ('access_token_123', 'refresh_token_123', 'client1'),
+    ('access_token_456', 'refresh_token_456', 'client2'),
+    ('access_token_789', 'refresh_token_789', 'client3');
+
+-- Create AuthorizationCode table
+CREATE TABLE AuthorizationCode (
+    code TEXT PRIMARY KEY,
+    clientId TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (clientId) REFERENCES OAuthClient(clientId)
+);
+
+-- Insert data into AuthorizationCode table
+INSERT INTO AuthorizationCode (code, clientId)
+VALUES
+    ('auth_code_123', 'client1'),
+    ('auth_code_456', 'client2');
+
+```
+
+
+
+```sql
+-- User table to store user information
+CREATE TABLE User (
+    userId UUID PRIMARY KEY,
+    username VARCHAR(255) NOT NULL,
+    passwordHash VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- OAuthClient table to store OAuth client information
+CREATE TABLE OAuthClient (
+    clientId UUID PRIMARY KEY,
+    clientSecret VARCHAR(255) NOT NULL,
+    redirectUri VARCHAR(255) NOT NULL,
+    userId UUID, -- Foreign key to User table
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user FOREIGN KEY (userId) REFERENCES User(userId) ON DELETE CASCADE
+);
+
+-- OAuthToken table to store OAuth tokens
+CREATE TABLE OAuthToken (
+    tokenId UUID PRIMARY KEY,
+    accessToken VARCHAR(255) NOT NULL,
+    refreshToken VARCHAR(255) NOT NULL,
+    clientId UUID, -- Foreign key to OAuthClient table
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_oauth_client FOREIGN KEY (clientId) REFERENCES OAuthClient(clientId) ON DELETE CASCADE
+);
+
+-- AuthorizationCode table to store authorization codes
+CREATE TABLE AuthorizationCode (
+    codeId UUID PRIMARY KEY,
+    authorizationCode VARCHAR(255) NOT NULL,
+    clientId UUID, -- Foreign key to OAuthClient table
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_oauth_client_auth_code FOREIGN KEY (clientId) REFERENCES OAuthClient(clientId) ON DELETE CASCADE
+);
+
+-- Insert sample user data
+INSERT INTO User (userId, username, passwordHash, email)
+VALUES
+    ('1a2b3c4d-5e6f-7g8h-9i0j-a1b2c3d4e5f6', 'john_doe', 'hashed_password1', 'john.doe@example.com'),
+    ('2a3b4c5d-6e7f-8g9h-0i1j-a2b3c4d5e6f7', 'jane_smith', 'hashed_password2', 'jane.smith@example.com');
+
+-- Insert sample OAuthClient data
+INSERT INTO OAuthClient (clientId, clientSecret, redirectUri, userId)
+VALUES
+    ('3a4b5c6d-7e8f-9g0h-1i2j-a3b4c5d6e7f', 'secret1', 'http://localhost:8080/callback', '1a2b3c4d-5e6f-7g8h-9i0j-a1b2c3d4e5f6'),
+    ('4a5b6c7d-8e9f-0g1h-2i3j-a4b5c6d7e8f', 'secret2', 'http://example.com/callback', '2a3b4c5d-6e7f-8g9h-0i1j-a2b3c4d5e6f7');
+
+-- Insert sample OAuthToken data
+INSERT INTO OAuthToken (tokenId, accessToken, refreshToken, clientId)
+VALUES
+    ('5a6b7c8d-9e0f-1g2h-3i4j-a5b6c7d8e9f0', 'access_token_123', 'refresh_token_123', '3a4b5c6d-7e8f-9g0h-1i2j-a3b4c5d6e7f'),
+    ('6a7b8c9d-0e1f-2g3h-4i5j-a6b7c8d9e0f1', 'access_token_456', 'refresh_token_456', '4a5b6c7d-8e9f-0g1h-2i3j-a4b5c6d7e8f');
+
+-- Insert sample AuthorizationCode data
+INSERT INTO AuthorizationCode (codeId, authorizationCode, clientId)
+VALUES
+    ('7a8b9c0d-1e2f-3g4h-5i6j-a7b8c9d0e1f2', 'auth_code_123', '3a4b5c6d-7e8f-9g0h-1i2j-a3b4c5d6e7f'),
+    ('8a9b0c1d-2e3f-4g5h-6i7j-a8b9c0d1e2f3', 'auth_code_456', '4a5b6c7d-8e9f-0g1h-2i3j-a4b5c6d7e8f');
+
+
+-- Extend OAuthToken table to include expiration time
+ALTER TABLE OAuthToken
+ADD COLUMN expiresAt TIMESTAMP;
+
+-- ClientGrantType table to manage supported grant types for OAuth clients
+CREATE TABLE ClientGrantType (
+    clientGrantTypeId UUID PRIMARY KEY,
+    clientId UUID,
+    grantType VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (clientId) REFERENCES OAuthClient(clientId) ON DELETE CASCADE
+);
+```
+
+
+
+```sql
+
+-- User table to store user information
+CREATE TABLE User (
+    userId UUID PRIMARY KEY,
+    username VARCHAR(255) NOT NULL,
+    passwordHash VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- OAuthClient table to store OAuth client information
+CREATE TABLE OAuthClient (
+    clientId UUID PRIMARY KEY,
+    clientSecret VARCHAR(255) NOT NULL,
+    redirectUri VARCHAR(255) NOT NULL,
+    userId UUID, -- Foreign key to User table
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user FOREIGN KEY (userId) REFERENCES User(userId) ON DELETE CASCADE
+);
+
+-- TokenType table to manage different token types
+CREATE TABLE TokenType (
+    typeId UUID PRIMARY KEY,
+    typeName VARCHAR(50) NOT NULL
+);
+
+-- OAuthToken table to store OAuth tokens
+CREATE TABLE OAuthToken (
+    tokenId UUID PRIMARY KEY,
+    accessToken VARCHAR(255) NOT NULL,
+    refreshToken VARCHAR(255) NOT NULL,
+    clientId UUID, -- Foreign key to OAuthClient table
+    typeId UUID, -- Foreign key to TokenType table
+    expiresAt TIMESTAMP,
+    issuedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    lastAccessedAt TIMESTAMP,
+    audience VARCHAR(255),
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_oauth_client FOREIGN KEY (clientId) REFERENCES OAuthClient(clientId) ON DELETE CASCADE,
+    CONSTRAINT fk_token_type FOREIGN KEY (typeId) REFERENCES TokenType(typeId)
+);
+
+-- Scope table to manage different scopes
+CREATE TABLE Scope (
+    scopeId UUID PRIMARY KEY,
+    scopeName VARCHAR(50) NOT NULL
+);
+
+-- OAuthTokenScope table to represent the many-to-many relationship between OAuthToken and Scope
+CREATE TABLE OAuthTokenScope (
+    tokenId UUID,
+    scopeId UUID,
+    PRIMARY KEY (tokenId, scopeId),
+    FOREIGN KEY (tokenId) REFERENCES OAuthToken(tokenId) ON DELETE CASCADE,
+    FOREIGN KEY (scopeId) REFERENCES Scope(scopeId) ON DELETE CASCADE
+);
+
+-- TokenIntrospection table to keep track of introspection requests
+CREATE TABLE TokenIntrospection (
+    introspectionId UUID PRIMARY KEY,
+    tokenId UUID,
+    clientId UUID,
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tokenId) REFERENCES OAuthToken(tokenId) ON DELETE CASCADE,
+    FOREIGN KEY (clientId) REFERENCES OAuthClient(clientId) ON DELETE CASCADE
+);
+
+-- RevokeReason table to store reasons for revoking access tokens
+CREATE TABLE RevokeReason (
+    reasonId UUID PRIMARY KEY,
+    reasonText VARCHAR(255) NOT NULL
+);
+
+-- OAuthTokenRevokeReason table to represent the many-to-many relationship between OAuthToken and RevokeReason
+CREATE TABLE OAuthTokenRevokeReason (
+    tokenId UUID,
+    reasonId UUID,
+    PRIMARY KEY (tokenId, reasonId),
+    FOREIGN KEY (tokenId) REFERENCES OAuthToken(tokenId) ON DELETE CASCADE,
+    FOREIGN KEY (reasonId) REFERENCES RevokeReason(reasonId) ON DELETE CASCADE
+);
+
+-- UserConsent table to store user consents for specific scopes
+CREATE TABLE UserConsent (
+    consentId UUID PRIMARY KEY,
+    userId UUID,
+    clientId UUID,
+    scopeId UUID,
+    granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (userId) REFERENCES User(userId) ON DELETE CASCADE,
+    FOREIGN KEY (clientId) REFERENCES OAuthClient(clientId) ON DELETE CASCADE,
+    FOREIGN KEY (scopeId) REFERENCES Scope(scopeId) ON DELETE CASCADE
+);
+
+-- AccessTokenAudience table to manage audiences associated with access tokens
+CREATE TABLE AccessTokenAudience (
+    tokenId UUID,
+    audience VARCHAR(255) NOT NULL,
+    PRIMARY KEY (tokenId, audience),
+    FOREIGN KEY (tokenId) REFERENCES OAuthToken(tokenId) ON DELETE CASCADE
+);
+
+-- RedirectUri table to store allowed redirect URIs for OAuth clients
+CREATE TABLE RedirectUri (
+    redirectUriId UUID PRIMARY KEY,
+    clientId UUID,
+    uri VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (clientId) REFERENCES OAuthClient(clientId) ON DELETE CASCADE
+);
+
+-- Insert sample data
+-- (Please note that you should replace these values with actual UUIDs for your use case)
+INSERT INTO User (userId, username, passwordHash, email)
+VALUES
+    ('1a2b3c4d-5e6f-7g8h-9i0j-a1b2c3d4e5f6', 'john_doe', 'hashed_password1', 'john.doe@example.com'),
+    ('2a3b4c5d-6e7f-8g9h-0i1j-a2b3c4d5e6f7', 'jane_smith', 'hashed_password2', 'jane.smith@example.com');
+
+INSERT INTO OAuthClient (clientId, clientSecret, redirectUri, userId)
+VALUES
+    ('3a4b5c6d-7e8f-9g0h-1i2j-a3b4c5d6e7f', 'secret1', 'http://localhost:8080/callback', '1a2b3c4d-5e6f-7g8h-9i0j-a1b2c3d4e5f6'),
+    ('4a5b6c7d-8e9f-0g1h-2i3j-a4b5c6d7e8f', 'secret2', 'http://example.com/callback', '2a3b4c5d-6e7f-8g9h-0i1j-a2b3c4d5e6f7');
+
+INSERT INTO TokenType (typeId, typeName)
+VALUES
+    ('5a6b7c8d-9e0f-1g2h-3i4j-a5b6c7d8e9f0', 'access_token'),
+    ('6a7b8c9d-0e1f-2g3h-4i5j-a6b7c8d9e0f1', 'refresh_token');
+
+INSERT INTO Scope (scopeId, scopeName)
+VALUES
+    ('7a8b9c0d-1e2f-3g4h-5i6j-a7b8c9d0e1f2', 'read_profile'),
+    ('8b9c0d1e-2f3g4h5i6j-7a8b9c0d1e2f', 'write_profile');
+
+INSERT INTO RedirectUri (redirectUriId, clientId, uri)
+VALUES
+    ('9a8b7c6d-5e4f-3d2c-1b0a-987654321012', '3a4b5c6d-7e8f-9g0h-1i2j-a3b4c5d6e7f', 'http://localhost:8080/callback'),
+    ('1a2b3c4d-5e6f-7g8h-9i0j-a1b2c3d4e5f6', '4a5b6c7d-8e9f-0g1h-2i3j-a4b5c6d7e8f', 'http://example.com/callback');
+
+
+```
+
+
+A resource is the object being proteted
+
+A resource's scope is a bounded extend of access that is possible to perform on a resource. A scope usually indicates what can be done with a given resource. Example of scopes are edit, view,delete and so on.
+
+Users attempt to perform actions on resources eg S3::CreateBucket
+Authorization to perform an action depends on a Policy
+
+Groups can only contain users
+Users and groups can be assigned policies
+
+policies dfine permissions 
+
+A user in AWS represents the human user  or workload who uses the IAM user to interact with AWS. It has long term credentials
+
+
+A role can be assumed by anyone who needs it. You can use a role to delegate access to users,applications or services that don't normally have access to your AWS resources. Roles have short term credentials which expire after a short period of time
+
+A policy is an object in AWS that, when associated with an identity or resource, defines their permissions
+
+identity-based policies: Permissions policies you attach to an IAM identity(user, group or role) that specify what that identity can do
+
+Resource-based policies are permissions policies you attach to a resource. Controls what actions a specified principal can perform on that resource and under what conditions
+
+IAM roles must have a resource based policy. This policy is called the 'Trust relationship'. it specifies who( which principal) can assume the role
+
+Inside keycloak, you can set 2 types of permissions: resource-based and scoped-based.
+
+Resource-based permissions get applied directly to the resource
+
+ Scoped-based permissions get applied to scope(s) or scope(s) and resources
+
+
+ Principals-identity in AWS
+
+ AWS roles get their credentials from  AWS Security token service(AWS STS)
+[networking-packet-fragment](https://www.baeldung.com/cs/networking-packet-fragment-frame-datagram-segment)

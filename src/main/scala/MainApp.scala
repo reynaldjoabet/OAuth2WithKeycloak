@@ -65,6 +65,7 @@ import kamon.http4s.middleware.server.KamonSupport
 import kamon.instrumentation.http.HttpServerMetrics
 //import cats.syntax.semigroupk._
 import cats.implicits._
+import java.net.NetworkInterface
 
 object MainApp extends IOApp {
 
@@ -164,17 +165,15 @@ object MainApp extends IOApp {
             _ <- EmberServerBuilder
                    .default[IO]
                    .withHttpApp(
-                     csrfMiddleware(
-                       ResponseLogger.httpApp(true, true, _ => false)(
-                         RequestLogger.httpApp(true, true, _ => false)(
-                           allRoutes.orNotFound
-                         )
+                     ResponseLogger.httpApp(true, true, _ => false)(
+                       RequestLogger.httpApp(true, true, _ => false)(
+                         allRoutes.orNotFound
                        )
                      )
                    )
                    .withPort(port"8097")
-                   .withHost(host"127.0.0.1")
-                   .withTLS(context, tlsParameters)
+                   .withHost(host"0.0.0.0")
+                   // .withTLS(context, tlsParameters)
                    // .withTLS(context)
                    // .withTLS(ssl)
                    // .withHttp2
@@ -245,4 +244,14 @@ object MainApp extends IOApp {
   // CipherSuite: TLS_AES_128_CCM_SHA256
   )
 
+  // server {
+  //       host: "0.0.0.0" listening on all interface the server ,127.0.0.1,192.168.2.3 (for network). Not great for security
+  //       host: ${?HOST}
+  //       port: 7070
+  //       port: ${?PORT}
+  //     }
+  // nterfaces are assigned unique identifiers, such as MAC (Media Access Control) addresses or IP (Internet Protocol) addresses.
+
+  // Interfaces play a role in implementing security measures within a network. For example, firewalls, access control lists, and security policies are often configured at the interface level to control and filter traffic
+  // Every Network Interface Card (NIC) is one device and has its own MAC address
 }
