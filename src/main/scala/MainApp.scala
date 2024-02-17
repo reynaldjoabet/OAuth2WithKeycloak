@@ -97,15 +97,16 @@ object MainApp extends IOApp {
     .withAllowHeadersIn(Set(ci"X-Csrf-Token", ci"Content-Type"))
 
   def csrfService = CSRF
-    .withGeneratedKey[IO, IO](request => CSRF.defaultOriginCheck(request, "localhost", Uri.Scheme.https, None))
+    .withGeneratedKey[IO, IO](request => CSRF.defaultOriginCheck(request, "localhost", Uri.Scheme.http, None))
     .map(builder =>
       builder
         // .withCookieName(cookieName)
         .withCookieDomain(Some("localhost"))
         .withCookiePath(Some("/"))
         .withCookieSecure(true) // defaults to false
-        .withCookieHttpOnly(true) // defaults to true
-        .withCookieName("__HOST-CSRF-TOKEN")
+        .withCookieHttpOnly(true)//The CSRF token cookie must not have httpOnly flag,
+         // defaults to true
+        .withCookieName("__HOST-CSRF-TOKEN")// sent only to this host, no subdomains
         .build
         .validate()
     )
