@@ -43,8 +43,8 @@ object TokenAuthenticationMiddleware {
       case Some(Authorization(Credentials.Token(AuthScheme.Bearer, token))) =>
         // check user in database
         OptionT.liftF(tokenRepo.findUserByToken(token)).flatMap {
-          case None                                     => OptionT.none[F, User]
-          case Some(user) if roles.subsetOf(user.roles) => OptionT.pure[F](user)
+          case Some(user) => if (roles.subsetOf(user.roles)) OptionT.pure[F](user) else OptionT.none[F, User]
+          case None       => OptionT.none[F, User]
         }
 
       case _ => OptionT.none[F, User]
@@ -62,8 +62,8 @@ object TokenAuthenticationMiddleware {
       .collect {
         case Authorization(Credentials.Token(AuthScheme.Bearer, token)) =>
           OptionT.liftF(tokenRepo.findUserByToken(token)).flatMap {
-            case Some(user) if roles.subsetOf(user.roles) => OptionT.pure[F](user)
-            case _                                        => OptionT.none[F, User]
+            case Some(user) => if (roles.subsetOf(user.roles)) OptionT.pure[F](user) else OptionT.none[F, User]
+            case None       => OptionT.none[F, User]
           }
       }
       .getOrElse(OptionT.none[F, User])

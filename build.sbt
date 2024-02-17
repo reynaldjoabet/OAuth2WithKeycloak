@@ -133,3 +133,10 @@ Compile / run / mainClass := Some("Main")
 // java -jar ./target/scala-2.13/oauth2withkeycloak_2.13-0.1.0-SNAPSHOT.jar   to run
 
 Compile / run / fork := true
+scalacOptions +="-target:17"// ensures the Scala compiler generates bytecode optimized for the Java 17 virtual machine
+
+//We can also set the soruce and target compatibility for the Java compiler by configuring the JavaOptions in build.sbt
+
+javaOptions ++= Seq(
+  "-soruce","17","target","17"
+)

@@ -919,4 +919,237 @@ Resource-based permissions get applied directly to the resource
  Principals-identity in AWS
 
  AWS roles get their credentials from  AWS Security token service(AWS STS)
+
+
+ For example, the following code limits access to any actions on the AdministrationController to users who are a member of the Administrator role:
+
+ ```C#
+ [Authorize(Roles = "Administrator")]
+public class AdministrationController : Controller
+{
+    public IActionResult Index() =>
+        Content("Administrator");
+}
+//Multiple roles can be specified as a comma separated list:
+[Authorize(Roles = "HRManager,Finance")]
+public class SalaryController : Controller
+{
+    public IActionResult Payslip() =>
+                    Content("HRManager || Finance");
+}
+
+//The SalaryController is only accessible by users who are members of the HRManager role or the Finance role.
+
+
+ ```
+
+
+
+ ```sql
+ CREATE TABLE Users (
+    UserID SERIAL PRIMARY KEY,
+    Username VARCHAR(50) UNIQUE NOT NULL,
+    Name VARCHAR(255) NOT NULL,
+     PasswordHash VARCHAR(255) NOT NULL,
+    Email VARCHAR(255) UNIQUE NOT NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    IsActive BOOLEAN DEFAULT TRUE
+);
+
+
+CREATE TABLE Roles (
+    RoleID SERIAL PRIMARY KEY,
+    RoleName VARCHAR(255) NOT NULL
+     Description TEXT,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE TABLE Privileges (
+    PrivilegeID SERIAL PRIMARY KEY,
+    PrivilegeName VARCHAR(255) NOT NULL
+     Description TEXT,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE TABLE Privileges (
+    PrivilegeID SERIAL PRIMARY KEY,
+    PrivilegeName VARCHAR(255) NOT NULL
+    
+);
+
+
+CREATE TABLE UserRoles (
+    UserID INT REFERENCES Users(UserID)ON DELETE CASCADE,
+    RoleID INT REFERENCES Roles(RoleID)ON DELETE CASCADE,
+      AssignedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (UserID, RoleID)
+);
+
+ 
+ CREATE TABLE RolePrivileges (
+    RoleID INT REFERENCES Roles(RoleID) ON DELETE CASCADE,
+    PrivilegeID INT REFERENCES Privileges(PrivilegeID)ON DELETE CASCADE,
+      AssignedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (RoleID, PrivilegeID)
+);
+
+
+--Get all roles for a specific user:
+
+WITH UserRolesCTE AS (
+    SELECT u.UserID, u.Name, r.RoleID, r.RoleName
+    FROM Users u
+    JOIN UserRoles ur ON u.UserID = ur.UserID
+    JOIN Roles r ON ur.RoleID = r.RoleID
+)
+SELECT UserID, Name, ARRAY_AGG(RoleName) AS Roles
+FROM UserRolesCTE
+WHERE UserID = 1 -- Replace with the desired UserID
+GROUP BY UserID, Name;
+
+
+--Get all privileges for a specific user:
+
+WITH UserPrivilegesCTE AS (
+    SELECT u.UserID, u.Name, p.PrivilegeID, p.PrivilegeName
+    FROM Users u
+    JOIN UserRoles ur ON u.UserID = ur.UserID
+    JOIN Roles r ON ur.RoleID = r.RoleID
+    JOIN RolePrivileges rp ON r.RoleID = rp.RoleID
+    JOIN Privileges p ON rp.PrivilegeID = p.PrivilegeID
+)
+SELECT UserID, Name, ARRAY_AGG(PrivilegeName) AS Privileges
+FROM UserPrivilegesCTE
+WHERE UserID = 1 -- Replace with the desired UserID
+GROUP BY UserID, Name;
+
+-- Get all users with their roles and privileges:
+
+WITH UserRolesPrivilegesCTE AS (
+    SELECT u.UserID, u.Name, r.RoleID, r.RoleName, p.PrivilegeID, p.PrivilegeName
+    FROM Users u
+    LEFT JOIN UserRoles ur ON u.UserID = ur.UserID
+    LEFT JOIN Roles r ON ur.RoleID = r.RoleID
+    LEFT JOIN RolePrivileges rp ON r.RoleID = rp.RoleID
+    LEFT JOIN Privileges p ON rp.PrivilegeID = p.PrivilegeID
+)
+SELECT DISTINCT UserID, Name, ARRAY_AGG(DISTINCT RoleName) AS Roles, ARRAY_AGG(DISTINCT PrivilegeName) AS Privileges
+FROM UserRolesPrivilegesCTE
+GROUP BY UserID, Name;
+
+
+--Get all users who have a specific privilege:
+
+WITH PrivilegedUsers AS (
+    SELECT u.UserID, u.Name
+    FROM Users u
+    JOIN UserRoles ur ON u.UserID = ur.UserID
+    JOIN Roles r ON ur.RoleID = r.RoleID
+    JOIN RolePrivileges rp ON r.RoleID = rp.RoleID
+    JOIN Privileges p ON rp.PrivilegeID = p.PrivilegeID
+    WHERE p.PrivilegeName = 'Write' -- Replace with the desired privilege
+)
+SELECT DISTINCT UserID, Name
+FROM PrivilegedUsers;
+
+
+--Get all roles and their associated privileges:
+
+WITH RolePrivilegesCTE AS (
+    SELECT r.RoleID, r.RoleName, p.PrivilegeID, p.PrivilegeName
+    FROM Roles r
+    LEFT JOIN RolePrivileges rp ON r.RoleID = rp.RoleID
+    LEFT JOIN Privileges p ON rp.PrivilegeID = p.PrivilegeID
+)
+SELECT RoleID, RoleName, ARRAY_AGG(PrivilegeName) AS Privileges
+FROM RolePrivilegesCTE
+GROUP BY RoleID, RoleName;
+
+
+--Get all roles that have a specific privilege:
+
+WITH PrivilegedRoles AS (
+    SELECT r.RoleID, r.RoleName
+    FROM Roles r
+    JOIN RolePrivileges rp ON r.RoleID = rp.RoleID
+    JOIN Privileges p ON rp.PrivilegeID = p.PrivilegeID
+    WHERE p.PrivilegeName = 'Read' -- Replace with the desired privilege
+)
+SELECT DISTINCT RoleID, RoleName
+FROM PrivilegedRoles;
+
+ ```
+
+
+ ```sql
+ CREATE DATABASE board;
+\c board;
+
+CREATE TABLE jobs(
+  id uuid DEFAULT gen_random_uuid()
+, date bigint NOT NULL
+, ownerEmail text NOT NULL
+, company text NOT NULL
+, title text NOT NULL
+, description text NOT NULL
+, externalUrl text NOT NULL
+, remote boolean NOT NULL DEFAULT false
+, location text
+, salaryLo integer
+, salaryHi integer
+, currency text
+, country text
+, tags text[]
+, image text
+, seniority text
+, other text
+, active boolean NOT NULL DEFAULT false
+);
+
+ALTER TABLE jobs
+ADD CONSTRAINT pk_jobs PRIMARY KEY (id);
+
+CREATE TABLE users (
+  email text NOT NULL
+, hashedPassword text NOT NULL
+, firstName text
+, lastName text
+, company text
+, role text NOT NULL
+);
+
+ALTER TABLE users
+ADD CONSTRAINT pk_users PRIMARY KEY (email);
+
+ALTER TABLE users
+ADD CONSTRAINT ck_users_role CHECK (role in ('ADMIN', 'RECRUITER'));
+
+CREATE TABLE recoverytokens (
+  email text NOT NULL,
+  token text NOT NULL,
+  expiration bigint NOT NULL
+);
+
+ALTER TABLE recoverytokens
+ADD CONSTRAINT pk_recoverytokens PRIMARY KEY (email);
+
+ ```
+
+ OAuth 2.0 is an authorization framework that lets an authenticated user grant access to third parties via tokens.
+
+ OAuth 2.0 comes with four main components:
+
+Resource Owner – the end-user or system that owns a protected resource or data
+Resource Server – the service exposes a protected resource, usually through an HTTP-based API
+Client – calls the protected resource on behalf of the resource owner
+Authorization Server – issues an OAuth 2.0 token and delivers it to the client after authenticating the resource owner
+
+Auth0 attaches the menu-admin role permissions as a claim to the access token, but not the role itself
+Through its permissions claim, the access token tells the server which actions the client can perform on which resources.
+
+![alt text](image.png)
 [networking-packet-fragment](https://www.baeldung.com/cs/networking-packet-fragment-frame-datagram-segment)
+
+//namecheap for domain names
