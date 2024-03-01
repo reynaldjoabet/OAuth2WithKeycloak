@@ -40,6 +40,7 @@ val cirisCore = ciris("ciris")
 val catsEffect = "org.typelevel" %% "cats-effect" % catsEffectVersion
 val fs2 = "co.fs2" %% "fs2-core" % fs2Version
 val redis4cats = "dev.profunktor" %% "redis4cats-effects" % redis4catsVersion
+val redis4catsLog4cats="dev.profunktor" %% "redis4cats-log4cats" % redis4catsVersion
 val http4sDsl = http4s("dsl")
 val http4sServer = http4s("ember-server")
 val http4sClient = http4s("ember-client")
@@ -72,6 +73,7 @@ lazy val root = (project in file("."))
       fs2,
       retry,
       redis4cats,
+      redis4catsLog4cats,
       cireParser,
       doobie_hikari,
       flyway,
@@ -113,9 +115,7 @@ addCompilerPlugin(
 )
 
 ThisBuild / run / fork := true
-ThisBuild / fork / test := true
 
-ThisBuild / fork in IntegrationTest := true
 ThisBuild / fork in Runtime := true
 
 javaOptions ++= Seq(
@@ -133,10 +133,14 @@ Compile / run / mainClass := Some("Main")
 // java -jar ./target/scala-2.13/oauth2withkeycloak_2.13-0.1.0-SNAPSHOT.jar   to run
 
 Compile / run / fork := true
-scalacOptions +="-target:17"// ensures the Scala compiler generates bytecode optimized for the Java 17 virtual machine
+scalacOptions += "-target:17" // ensures the Scala compiler generates bytecode optimized for the Java 17 virtual machine
 
 //We can also set the soruce and target compatibility for the Java compiler by configuring the JavaOptions in build.sbt
 
-javaOptions ++= Seq(
-  "-soruce","17","target","17"
-)
+// javaOptions ++= Seq(
+//   "-source",
+//   "17",
+//   "target",
+//   "17"
+// )
+ThisBuild / semanticdbEnabled := true

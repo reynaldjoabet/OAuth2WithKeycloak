@@ -1153,3 +1153,22 @@ Through its permissions claim, the access token tells the server which actions t
 [networking-packet-fragment](https://www.baeldung.com/cs/networking-packet-fragment-frame-datagram-segment)
 
 //namecheap for domain names
+
+
+
+ a "schema" refers to a structured definition of the data model that describes the shape and properties of the data being transmitted over an API. It's essentially a blueprint that specifies the structure, types, and constraints of the data
+
+ In Tapir, schemas are used for several purposes:
+
+Data Validation: Schemas define the expected structure and types of request and response data. This allows Tapir to automatically validate incoming requests against the defined schema to ensure that they conform to the expected format.
+
+Documentation: Schemas provide metadata about the structure of the data, which can be used to generate API documentation. This documentation can include details about the types of request and response data, as well as any constraints or validation rules that apply.
+
+Code Generation: Schemas can be used to generate code for client and server applications that interact with the API. This code includes data models that match the schema, making it easier to work with the API in a type-safe manner.
+
+Serialization and Deserialization: Schemas define how data should be serialized (converted to a format suitable for transmission over the network) and deserialized (converted back into its original form). Tapir uses schemas to automatically serialize and deserialize request and response data based on the defined data models.
+
+
+
+Routers have an IP  address and a MAC address on each interface( network)
+Routers maintain a map of all the networks they know about( routing table)

@@ -96,6 +96,7 @@ object MainApp extends IOApp {
     // The browser will reject any response that includes Access-Control-Allow-Origin=*
     .withAllowHeadersIn(Set(ci"X-Csrf-Token", ci"Content-Type"))
 
+    
   def csrfService = CSRF
     .withGeneratedKey[IO, IO](request => CSRF.defaultOriginCheck(request, "localhost", Uri.Scheme.http, None))
     .map(builder =>
@@ -104,9 +105,9 @@ object MainApp extends IOApp {
         .withCookieDomain(Some("localhost"))
         .withCookiePath(Some("/"))
         .withCookieSecure(true) // defaults to false
-        .withCookieHttpOnly(true)//The CSRF token cookie must not have httpOnly flag,
-         // defaults to true
-        .withCookieName("__HOST-CSRF-TOKEN")// sent only to this host, no subdomains
+        .withCookieHttpOnly(true) // The CSRF token cookie must not have httpOnly flag,
+        // defaults to true
+        .withCookieName("__HOST-CSRF-TOKEN") // sent only to this host, no subdomains
         .build
         .validate()
     )

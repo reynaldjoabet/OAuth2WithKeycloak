@@ -142,7 +142,7 @@ final case class AuthenticationRoutes[F[_]: Async: Console](
       userSessionService
         .getFreshAccessToken(userSession.sessionId)
         .flatMap {
-          case Some(token) => Ok(AccessTokenResponse(token))
+          case Some(token) => Ok.apply(AccessTokenResponse(token))
           case None        => BadRequest()
         }
         .recoverWith { case err => InternalServerError(err.toString()) }
