@@ -1,9 +1,11 @@
 package config
+
 import ciris._
 
 final case class AuthorizationEndpoint(value: String)
 
 object AuthorizationEndpoint {
+
   val authorizationEndpoint: ConfigValue[Effect, AuthorizationEndpoint] =
     env("AUTHORIZATION_ENDPOINT")
       .as[String]
@@ -11,4 +13,5 @@ object AuthorizationEndpoint {
         "http://localhost:8080/realms/FlashPay/protocol/openid-connect/auth"
       )
       .map(AuthorizationEndpoint(_))
+
 }

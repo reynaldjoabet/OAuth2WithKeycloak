@@ -1,9 +1,10 @@
 package db
 
+import cats.effect.std
+import cats.effect.IO
+
 import config.FlywayConfiguration
 import org.flywaydb.core.Flyway
-import cats.effect.IO
-import cats.effect.std
 
 object DBMigration {
 
@@ -21,7 +22,7 @@ object DBMigration {
 
   def reset() =
     for {
-      _ <- std.Console[IO].println("RESETTING DATABASE!")
+      _            <- std.Console[IO].println("RESETTING DATABASE!")
       flywayConfig <- FlywayConfiguration.flywayConfig.load[IO]
       flyway <- IO.delay(
                   Flyway

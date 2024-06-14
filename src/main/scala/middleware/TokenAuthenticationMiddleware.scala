@@ -1,23 +1,25 @@
 package middleware
 
-import org.http4s.server.AuthMiddleware
-import org.http4s.headers.Authorization
-import org.http4s._
-import cats.Monad
 import cats.data._
 import cats.implicits._
+import cats.Monad
+
+import org.http4s._
+import org.http4s.headers.Authorization
+import org.http4s.server.AuthMiddleware
 
 // Reponses object contains Ops classes for different response types
 //Responses trait contains implicit conversions of the different response types
 object TokenAuthenticationMiddleware {
 
   def apply[F[_]: Monad, T](
-      onFailure: Request[F] => F[Response[F]],
-      tokenRepo: TokenRepository[F, T]
+    onFailure: Request[F] => F[Response[F]],
+    tokenRepo: TokenRepository[F, T]
   ): AuthMiddleware[F, T] = AuthMiddleware.noSpider(authenticateUser(tokenRepo), onFailure)
+
   // Middleware that extracts the token from the Authorization header and authenticates the user
   private def authenticateUser[F[_]: Monad, T](
-      tokenRepo: TokenRepository[F, T]
+    tokenRepo: TokenRepository[F, T]
   ): Kleisli[OptionT[F, *], Request[F], T] = Kleisli { req: Request[F] =>
     req.headers.get[Authorization] match {
       case Some(Authorization(Credentials.Token(AuthScheme.Bearer, token))) =>
@@ -36,16 +38,19 @@ object TokenAuthenticationMiddleware {
   case class User(id: Long, username: String, roles: Set[String])
 
   private def authenticateUser1[F[_]: Monad](
-      tokenRepo: TokenRepository[F, User],
-      roles: Set[String]
+    tokenRepo: TokenRepository[F, User],
+    roles: Set[String]
   ): Kleisli[OptionT[F, *], Request[F], User] = Kleisli { req: Request[F] =>
     req.headers.get[Authorization] match {
       case Some(Authorization(Credentials.Token(AuthScheme.Bearer, token))) =>
         // check user in database
-        OptionT.liftF(tokenRepo.findUserByToken(token)).flatMap {
-          case Some(user) => if (roles.subsetOf(user.roles)) OptionT.pure[F](user) else OptionT.none[F, User]
-          case None       => OptionT.none[F, User]
-        }
+        OptionT
+          .liftF(tokenRepo.findUserByToken(token))
+          .flatMap {
+            case Some(user) =>
+              if (roles.subsetOf(user.roles)) OptionT.pure[F](user) else OptionT.none[F, User]
+            case None => OptionT.none[F, User]
+          }
 
       case _ => OptionT.none[F, User]
     }
@@ -53,17 +58,19 @@ object TokenAuthenticationMiddleware {
   }
 
   private def authenticateUser2[F[_]: Monad](
-      tokenRepo: TokenRepository[F, User],
-      roles: Set[String]
+    tokenRepo: TokenRepository[F, User],
+    roles: Set[String]
   ): Kleisli[OptionT[F, *], Request[F], User] = Kleisli { req: Request[F] =>
     req
       .headers
       .get[Authorization]
-      .collect {
-        case Authorization(Credentials.Token(AuthScheme.Bearer, token)) =>
-          OptionT.liftF(tokenRepo.findUserByToken(token)).flatMap {
-            case Some(user) => if (roles.subsetOf(user.roles)) OptionT.pure[F](user) else OptionT.none[F, User]
-            case None       => OptionT.none[F, User]
+      .collect { case Authorization(Credentials.Token(AuthScheme.Bearer, token)) =>
+        OptionT
+          .liftF(tokenRepo.findUserByToken(token))
+          .flatMap {
+            case Some(user) =>
+              if (roles.subsetOf(user.roles)) OptionT.pure[F](user) else OptionT.none[F, User]
+            case None => OptionT.none[F, User]
           }
       }
       .getOrElse(OptionT.none[F, User])

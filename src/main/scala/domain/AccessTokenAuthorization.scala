@@ -1,8 +1,9 @@
 package domain
+
 import io.circe.generic.semiauto.deriveCodec
 
 final case class AccessTokenAuthorization(
-    permissions: Option[List[Permission]]
+  permissions: Option[List[Permission]]
 )
 
 object AccessTokenAuthorization {

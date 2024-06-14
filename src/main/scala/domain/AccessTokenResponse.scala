@@ -1,4 +1,5 @@
 package domain
+
 import io.circe.generic.semiauto.deriveCodec
 import io.circe.Decoder._
 

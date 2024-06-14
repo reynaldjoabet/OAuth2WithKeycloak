@@ -1,10 +1,12 @@
 package config
 
+import cats.effect.kernel.Async
+import cats.effect.IO
 ///import model._
 import cats.implicits._
-import cats.effect.IO
-import cats.effect.kernel.Async
+
 import ciris._
+
 final case class ServerConfiguration private (host: String, port: Int)
 
 object ServerConfiguration {

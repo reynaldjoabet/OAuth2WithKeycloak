@@ -2,14 +2,13 @@ package config
 
 import cats.effect.kernel.Async
 import cats.implicits._
-//import lt.dvim.ciris.Hocon._
-import cats.implicits._
+
 import ciris.ConfigValue
 import ciris.Effect
 
 final case class AppConfiguration private (
-    flyway: FlywayConfiguration,
-    serverConfig: ServerConfiguration
+  flyway: FlywayConfiguration,
+  serverConfig: ServerConfiguration
 )
 
 object AppConfiguration {

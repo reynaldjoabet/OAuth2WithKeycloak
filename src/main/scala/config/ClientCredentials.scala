@@ -1,13 +1,16 @@
 package config
-import ciris._
+
 import cats.syntax.all._
 
+import ciris._
+
 final case class ClientCredentials(
-    clientId: Secret[String],
-    clientSecret: Secret[String]
+  clientId: Secret[String],
+  clientSecret: Secret[String]
 )
 
 object ClientCredentials {
+
   private[this] val clientSecret: ConfigValue[Effect, Secret[String]] =
     env("CLIENT_SECRET")
       .as[String]

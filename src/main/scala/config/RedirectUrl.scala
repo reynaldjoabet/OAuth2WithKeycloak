@@ -1,9 +1,11 @@
 package config
+
 import ciris._
 
 final case class RedirectUrl(value: String)
 
 object RedirectUrl {
+
   val redirectUrl: ConfigValue[Effect, RedirectUrl] =
     env("REDIRECT_URL")
       .as[String]
@@ -11,4 +13,5 @@ object RedirectUrl {
         "https://localhost:8097/callback"
       )
       .map(RedirectUrl(_))
+
 }

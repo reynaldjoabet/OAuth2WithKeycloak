@@ -1,4 +1,5 @@
 package domain
+
 import io.circe.Decoder
 final case class LogoutToken()
 

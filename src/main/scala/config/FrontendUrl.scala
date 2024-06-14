@@ -1,10 +1,13 @@
 package config
+
 import ciris._
+
 final case class FrontendUrl(
-    value: String
+  value: String
 )
 
 object FrontendUrl {
+
   val frontendUrl: ConfigValue[Effect, FrontendUrl] =
     env("REDIRECT_URL")
       .as[String]
@@ -12,4 +15,5 @@ object FrontendUrl {
         "http://localhost:3000"
       )
       .map(FrontendUrl(_))
+
 }

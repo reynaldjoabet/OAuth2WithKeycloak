@@ -1,14 +1,15 @@
 package db
 
-import doobie._
-import doobie.implicits._
-import doobie.util.transactor
+import scala.concurrent.ExecutionContext
+
 import cats.effect.kernel.{Async, Resource}
+
+import doobie._
 import doobie.hikari.HikariTransactor
 import doobie.hikari.HikariTransactor.newHikariTransactor
+import doobie.implicits._
+import doobie.util.transactor
 import doobie.util.transactor.Transactor.Aux
-
-import scala.concurrent.ExecutionContext
 
 object Doobie {
 

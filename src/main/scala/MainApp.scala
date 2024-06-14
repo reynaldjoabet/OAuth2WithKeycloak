@@ -1,71 +1,75 @@
-import services.TokenService
-import services.UserSessionService
-import cats.effect.ExitCode
+import java.io.InputStream
+import java.net.NetworkInterface
+import java.security.KeyStore
+import java.security.SecureRandom
+import java.util.concurrent.Executors
+
+import scala.concurrent.ExecutionContext.fromExecutorService
+import scala.concurrent.ExecutionContext.global
+import scala.jdk.javaapi.CollectionConverters._
+
+import cats.effect
 import cats.effect._
-import org.http4s.ember.server.EmberServerBuilder
+import cats.effect.kernel.syntax.resource
+import cats.effect.std.syntax.supervisor
+import cats.effect.std.Random
+import cats.effect.std.Supervisor
+import cats.effect.std.UUIDGen
+import cats.effect.ExitCode
+//import cats.syntax.semigroupk._
+import cats.implicits._
+import cats.Functor
+import fs2.io.file.Files
+import fs2.io.file.Path
+import fs2.io.net.tls.TLSContext
+import fs2.io.net.tls.TLSParameters
+import fs2.io.toInputStream
+
+import client.ClientService
 import com.comcast.ip4s._
+import dev.profunktor.redis4cats.algebra
+import dev.profunktor.redis4cats.connection.RedisClient
+import dev.profunktor.redis4cats.data
+import dev.profunktor.redis4cats.data.RedisCodec.Utf8
+import dev.profunktor.redis4cats.effect.Log.Stdout._
+import dev.profunktor.redis4cats.effect.MkRedis
+import dev.profunktor.redis4cats.Redis
+import domain.UserSession
+import io.circe
+import javax.net.ssl.KeyManagerFactory
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.TrustManagerFactory
+import kamon.http4s.middleware.server.KamonSupport
+import kamon.instrumentation.http.HttpServerMetrics
+import kamon.jaeger
+import kamon.jaeger.JaegerReporter
+import kamon.prometheus.PrometheusReporter
+import kamon.zipkin.ZipkinReporter
+import kamon.Kamon
+import org.http4s.ember.client.EmberClientBuilder
+import org.http4s.ember.server.EmberServerBuilder
+import org.http4s.headers.Referer
 import org.http4s.server.defaults.Banner
+import org.http4s.server.middleware
+import org.http4s.server.middleware.CORS
+import org.http4s.server.middleware.CSRF
+import org.http4s.server.middleware.HSTS
+import org.http4s.server.middleware.Metrics
+import org.http4s.server.middleware.RequestLogger
+import org.http4s.server.middleware.ResponseLogger
+import org.http4s.server.AuthMiddleware
 import org.http4s.server.Server
+import org.http4s.Method._
+import org.http4s.Uri
+import org.typelevel.ci._
 import org.typelevel.log4cats.{Logger, SelfAwareStructuredLogger}
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 import org.typelevel.log4cats.LoggerName
-import io.circe
 import routes._
 import services._
-import org.http4s.server.middleware.RequestLogger
-import cats.effect.std.Random
-import org.http4s.ember.client.EmberClientBuilder
-import client.ClientService
-import dev.profunktor.redis4cats.Redis
-import dev.profunktor.redis4cats.connection.RedisClient
-import dev.profunktor.redis4cats.effect.MkRedis
-import dev.profunktor.redis4cats.algebra
-import dev.profunktor.redis4cats.data.RedisCodec.Utf8
-import dev.profunktor.redis4cats.Redis
-import dev.profunktor.redis4cats.effect.Log.Stdout._
-import domain.UserSession
-import dev.profunktor.redis4cats.data
-import org.http4s.server.AuthMiddleware
-import cats.Functor
-import cats.effect.std.UUIDGen
-import cats.effect.std.Supervisor
-import cats.effect.std.syntax.supervisor
-import org.http4s.server.middleware.ResponseLogger
-import org.http4s.server.middleware.CSRF
-import org.http4s.Uri
-import org.http4s.server.middleware.CORS
-import org.typelevel.ci._
-import org.http4s.Method._
-import scala.concurrent.ExecutionContext.global
-import scala.concurrent.ExecutionContext.fromExecutorService
-import java.util.concurrent.Executors
-import org.http4s.headers.Referer
-import fs2.io.net.tls.TLSContext
-import java.security.KeyStore
-import javax.net.ssl.KeyManagerFactory
-import javax.net.ssl.SSLSocket
-import javax.net.ssl.TrustManagerFactory
-import java.security.SecureRandom
-import fs2.io.file.Files
-import fs2.io.file.Path
-import fs2.io.toInputStream
-import cats.effect.kernel.syntax.resource
-import org.http4s.server.middleware.HSTS
-import fs2.io.net.tls.TLSParameters
-import scala.jdk.javaapi.CollectionConverters._
-import javax.net.ssl.SSLContext
-import org.http4s.server.middleware.Metrics
-import org.http4s.server.middleware
-import kamon.zipkin.ZipkinReporter
-import kamon.prometheus.PrometheusReporter
-import kamon.Kamon
-import kamon.jaeger.JaegerReporter
-import kamon.jaeger
-import kamon.http4s.middleware.server.KamonSupport
-import kamon.instrumentation.http.HttpServerMetrics
-//import cats.syntax.semigroupk._
-import cats.implicits._
-import java.net.NetworkInterface
+import services.TokenService
+import services.UserSessionService
 
 object MainApp extends IOApp {
 
@@ -82,7 +86,7 @@ object MainApp extends IOApp {
     )
 
   val headerName = "X-Csrf-Token" // default
-  val cookieName = "csrf-token" // default
+  val cookieName = "csrf-token"   // default
 
   private val corsService = CORS
     .policy
@@ -96,100 +100,97 @@ object MainApp extends IOApp {
     // The browser will reject any response that includes Access-Control-Allow-Origin=*
     .withAllowHeadersIn(Set(ci"X-Csrf-Token", ci"Content-Type"))
 
-    
   def csrfService = CSRF
-    .withGeneratedKey[IO, IO](request => CSRF.defaultOriginCheck(request, "localhost", Uri.Scheme.http, None))
+    .withGeneratedKey[IO, IO](request =>
+      CSRF.defaultOriginCheck(request, "localhost", Uri.Scheme.http, None)
+    )
     .map(builder =>
       builder
         // .withCookieName(cookieName)
         .withCookieDomain(Some("localhost"))
         .withCookiePath(Some("/"))
-        .withCookieSecure(true) // defaults to false
+        .withCookieSecure(true)   // defaults to false
         .withCookieHttpOnly(true) // The CSRF token cookie must not have httpOnly flag,
         // defaults to true
         .withCookieName("__HOST-CSRF-TOKEN") // sent only to this host, no subdomains
-        .build
-        .validate()
+        .build.validate()
     )
     .toResource
 
   override def run(args: List[String]): IO[ExitCode] =
-    createSSLContext(password).evalMap { sslContext =>
-      RedisClient[IO]
-        .from("redis://localhost")
-        .use { redisClient =>
-          (for {
+    createSSLContext(password)
+      .evalMap { sslContext =>
+        RedisClient[IO]
+          .from("redis://localhost")
+          .use { redisClient =>
+            (for {
 
-            client <- EmberClientBuilder
-                        .default[IO]
-                        .build
-            redisCommands <- Redis[IO]
-                               .fromClient[String, UserSession](
-                                 redisClient,
-                                 UserSession.userSessionCodec
-                               )
-                               .evalOn(ec)
-
-            redisCommandsUtf8 <- Redis[IO]
-                                   .fromClient(
-                                     redisClient,
-                                     data.RedisCodec.Utf8
-                                   )
-                                   .evalOn(ec)
-
-            context = TLSContext
-                        .Builder
-                        .forAsync[IO]
-                        .fromSSLContext(sslContext)
-
-            csrfMiddleware <- csrfService
-
-            uuidGen = UUIDGen[IO]
-            tokenService = TokenService.make(redisCommandsUtf8)
-
-            clientService = ClientService.make(client, tokenService, uuidGen)
-            userSessionService = UserSessionService.make(
-                                   redisCommands,
-                                   clientService
+              client <- EmberClientBuilder.default[IO].build
+              redisCommands <- Redis[IO]
+                                 .fromClient[String, UserSession](
+                                   redisClient,
+                                   UserSession.userSessionCodec
                                  )
+                                 .evalOn(ec)
 
-            routes = AuthenticationRoutes(
-                       clientService,
-                       userSessionService,
-                       tokenService,
-                       uuidGen
-                     )
-            // metrics <-
-            // Resource.eval(
-            // IO(HttpServerMetrics.of("http4s.server", "/127.0.0.1", 8097))
-            // ).start
-            allRoutes <- routes.allRoutes
-            _ <- EmberServerBuilder
-                   .default[IO]
-                   .withHttpApp(
-                     ResponseLogger.httpApp(true, true, _ => false)(
-                       RequestLogger.httpApp(true, true, _ => false)(
-                         allRoutes.orNotFound
+              redisCommandsUtf8 <- Redis[IO]
+                                     .fromClient(
+                                       redisClient,
+                                       data.RedisCodec.Utf8
+                                     )
+                                     .evalOn(ec)
+
+              context = TLSContext.Builder.forAsync[IO].fromSSLContext(sslContext)
+
+              csrfMiddleware <- csrfService
+
+              uuidGen      = UUIDGen[IO]
+              tokenService = TokenService.make(redisCommandsUtf8)
+
+              clientService = ClientService.make(client, tokenService, uuidGen)
+              userSessionService = UserSessionService.make(
+                                     redisCommands,
+                                     clientService
+                                   )
+
+              routes = AuthenticationRoutes(
+                         clientService,
+                         userSessionService,
+                         tokenService,
+                         uuidGen
+                       )
+              // metrics <-
+              // Resource.eval(
+              // IO(HttpServerMetrics.of("http4s.server", "/127.0.0.1", 8097))
+              // ).start
+              allRoutes <- routes.allRoutes
+              _ <- EmberServerBuilder
+                     .default[IO]
+                     .withHttpApp(
+                       ResponseLogger.httpApp(true, true, _ => false)(
+                         RequestLogger.httpApp(true, true, _ => false)(
+                           allRoutes.orNotFound
+                         )
                        )
                      )
-                   )
-                   .withPort(port"8097")
-                   .withHost(host"0.0.0.0")
-                   // .withTLS(context, tlsParameters)
-                   // .withTLS(context)
-                   // .withTLS(ssl)
-                   // .withHttp2
-                   // .withErrorHandler()//
-                   .build
-                   .evalTap(showEmberBanner[IO](_))
+                     .withPort(port"8097")
+                     .withHost(host"0.0.0.0")
 
-          } yield ()).useForever
-        }
-    }.compile
+                     // .withTLS(context, tlsParameters)
+                     // .withTLS(context)
+                     // .withTLS(ssl)
+                     // .withHttp2
+                     // .withErrorHandler()//
+                     .build.evalTap(showEmberBanner[IO](_))
+
+            } yield ()).useForever
+          }
+      }
+      .compile
       .drain
       .as(ExitCode.Success)
 
-  private def createSSLContext(password: String) =
+  private def createSSLContext(password: String): fs2.Stream[IO, SSLContext] =
     Files[IO]
       .readAll(Path("src/main/resources/localhost.keystore.p12"))
       // .evalTap(IO.println)
@@ -223,16 +224,15 @@ object MainApp extends IOApp {
       getClass.getClassLoader.getResourceAsStream("localhost.keystore.p12")
     )
     val stream = Resource.make(load)(s => IO.blocking(s.close))
-    stream.map { inputStream =>
-      val keyStore = KeyStore.getInstance("pkcs12")
-      keyStore.load(inputStream, password.toCharArray())
-      (keyStore, password.toCharArray())
-      TLSContext
-        .Builder
-        .forAsync[IO]
-        .fromKeyStore(keyStore, password.toCharArray())
-    }
+    stream.map(getSSLContext)
   }.flatMap(_.toResource)
+
+  private def getSSLContext(in: InputStream): IO[TLSContext[IO]] = {
+    val keyStore = KeyStore.getInstance("pkcs12")
+    keyStore.load(in, password.toCharArray())
+    // (keyStore, password.toCharArray())
+    TLSContext.Builder.forAsync[IO].fromKeyStore(keyStore, password.toCharArray())
+  }
 
 // in TLS 1.3, TLS_AES_128_CCM_8_SHA256 and TLS_AES_128_CCM_SHA256 are marked as CAN implement
 // TLS_AES_128_GCM_SHA256 MUST implement

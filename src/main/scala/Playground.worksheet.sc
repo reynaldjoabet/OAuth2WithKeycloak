@@ -1,45 +1,47 @@
+import java.lang.Exception
 import java.time.LocalDate
 
-import cats.data._
-import cats.Monad
-import cats.Applicative
-import org.http4s._
-import org.http4s.dsl.io._
-import org.http4s.headers.Authorization
-import org.http4s.server.AuthMiddleware
-import org.http4s.server._
 import cats._
+import cats.{Applicative, Monad}
+import cats.data._
 import cats.effect._
+import cats.effect.IO
+import cats.implicits
+import cats.implicits._
+import cats.implicits.catsSyntaxList
+import cats.Applicative
+import cats.Monad
+
 import doobie._
 import doobie.implicits._
-import cats.implicits._
-import cats.effect.IO
-import java.lang.Exception
 import doobie.syntax._
 import doobie.util._
-import doobie.Meta._
-
-import cats.implicits.catsSyntaxList
-import cats.{Applicative, Monad}
-import doobie._
-import doobie.implicits._
 import doobie.util.transactor.Transactor
+import doobie.Meta._
+import org.http4s._
+import org.http4s.dsl.io._
+import org.http4s.ember.client.EmberClientBuilder
+import org.http4s.headers.Authorization
+import org.http4s.server._
+import org.http4s.server.AuthMiddleware
 
-import cats.implicits
 case class Book(id: Int, title: String, author: String)
 
 import scala.collection.mutable
 
 trait BookRepository {
+
   def getAllBooks: List[Book]
   def getBookById(id: Int): Option[Book]
   def addBook(book: Book): Unit
   def updateBook(book: Book): Unit
   def deleteBook(id: Int): Unit
+
 }
 
 class InMemoryBookRepository extends BookRepository {
-  private val books = mutable.Map.empty[Int, Book]
+
+  private val books  = mutable.Map.empty[Int, Book]
   private var nextId = 1
 
   def getAllBooks: List[Book] = books.values.toList
@@ -52,68 +54,84 @@ class InMemoryBookRepository extends BookRepository {
     nextId += 1
   }
 
-  def updateBook(book: Book): Unit = {
+  def updateBook(book: Book): Unit =
     books.update(book.id, book)
-  }
 
-  def deleteBook(id: Int): Unit = {
+  def deleteBook(id: Int): Unit =
     books.remove(id)
-  }
+
 }
 
 //Now, let's create a service that uses the repository and provides higher-level business logic:
 
 trait BookService[F[_]] {
+
   def getAllBooks: F[List[Book]]
   def getBookById(id: Int): F[Option[Book]]
   def addBook(title: String, author: String): F[Unit]
   def updateBook(id: Int, title: String, author: String): F[Unit]
   def deleteBook(id: Int): F[Unit]
+
 }
 
 class BookServiceImpl(repository: BookRepository) extends BookService[IO] {
+
   def getAllBooks: IO[List[Book]] = IO(repository.getAllBooks)
 
   def getBookById(id: Int): IO[Option[Book]] = IO(repository.getBookById(id))
 
-  def addBook(title: String, author: String): IO[Unit] = IO(repository.addBook(Book(0, title, author)))
+  def addBook(title: String, author: String): IO[Unit] = IO(
+    repository.addBook(Book(0, title, author))
+  )
 
   def updateBook(id: Int, title: String, author: String): IO[Unit] = {
-    IO.fromOption(Some(Book(id, title, author)))(new Exception("Invalid book data.")).flatMap { updatedBook =>
-      IO(repository.updateBook(updatedBook))
-    }
+    IO.fromOption(Some(Book(id, title, author)))(new Exception("Invalid book data."))
+      .flatMap { updatedBook =>
+        IO(repository.updateBook(updatedBook))
+      }
   }
 
   def deleteBook(id: Int): IO[Unit] = IO(repository.deleteBook(id))
+
 }
 
 trait BookRepository1[F[_]] {
+
   def getAllBooks: F[List[Book]]
   def getBookById(id: Int): F[Option[Book]]
   def addBook(book: Book): F[Unit]
   def updateBook(book: Book): F[Unit]
   def deleteBook(id: Int): F[Unit]
+
 }
 
 object BookRepository1 {
+
   def apply[F[_]](implicit ev: BookRepository1[F]): BookRepository1[F] = ev
 
   implicit class Ops[F[_]: BookRepository1](bookRepo: BookRepository1[F]) {
 
-    def getAllBooks: F[List[Book]] = BookRepository1[F].getAllBooks
+    def getAllBooks: F[List[Book]]            = BookRepository1[F].getAllBooks
     def getBookById(id: Int): F[Option[Book]] = BookRepository1[F].getBookById(id)
-    def addBook(book: Book): F[Unit] = BookRepository1[F].addBook(book)
-    def updateBook(book: Book): F[Unit] = BookRepository1[F].updateBook(book)
-    def deleteBook(id: Int): F[Unit] = BookRepository1[F].deleteBook(id)
+    def addBook(book: Book): F[Unit]          = BookRepository1[F].addBook(book)
+    def updateBook(book: Book): F[Unit]       = BookRepository1[F].updateBook(book)
+    def deleteBook(id: Int): F[Unit]          = BookRepository1[F].deleteBook(id)
+
   }
 
-  def doobieInterpreter[F[_]](transactor: Transactor[F])(implicit m: MonadCancel[F, Throwable]): BookRepository1[F] =
+  def doobieInterpreter[F[_]](
+    transactor: Transactor[F]
+  )(implicit m: MonadCancel[F, Throwable]): BookRepository1[F] =
     new BookRepository1[F] {
+
       def getAllBooks: F[List[Book]] =
         sql"SELECT id, title, author FROM books".query[Book].to[List].transact(transactor)
 
       def getBookById(id: Int): F[Option[Book]] =
-        sql"SELECT id, title, author FROM books WHERE id = $id".query[Book].option.transact(transactor)
+        sql"SELECT id, title, author FROM books WHERE id = $id"
+          .query[Book]
+          .option
+          .transact(transactor)
 
       def addBook(book: Book): F[Unit] =
         sql"INSERT INTO books (title, author) VALUES (${book.title}, ${book.author})"
@@ -131,11 +149,21 @@ object BookRepository1 {
 
       def deleteBook(id: Int): F[Unit] =
         sql"DELETE FROM books WHERE id = $id".update.run.transact(transactor).void
+
     }
+
 }
 
 case class Role(id: Long, roleName: String, description: String)
-case class User(id: Long, userName: String, passwordHash: String, email: String, createdAt: LocalDate, isActive: Boolean)
+
+case class User(
+  id: Long,
+  userName: String,
+  passwordHash: String,
+  email: String,
+  createdAt: LocalDate,
+  isActive: Boolean
+)
 
 // CREATE TABLE roles (
 //     id SERIAL PRIMARY KEY,
@@ -144,22 +172,26 @@ case class User(id: Long, userName: String, passwordHash: String, email: String,
 // );
 
 trait UserRepository[F[_]] {
+
   def createUser(user: User, roles: List[Role]): F[Unit]
   def getUserById(userId: Long): F[Option[User]]
   def updateUser(user: User, roles: List[Role]): F[Unit]
   def deleteUser(userId: Long): F[Unit]
   def getUserRoles(userId: Long): F[List[Role]]
+
 }
 
 object UserRepository {
   // existing code...
 
-  def doobieInterpreter[F[_]](transactor: Transactor[F])(implicit m: MonadCancel[F, Throwable]): UserRepository[F] =
+  def doobieInterpreter[F[_]](
+    transactor: Transactor[F]
+  )(implicit m: MonadCancel[F, Throwable]): UserRepository[F] =
     new UserRepository[F] {
       // existing code...
 
       def getUserById(userId: Long): F[Option[User]] = m.pure(None)
-      def deleteUser(userId: Long): F[Unit] = m.unit
+      def deleteUser(userId: Long): F[Unit]          = m.unit
 
       def createUser(user: User, roles: List[Role]): F[Unit] = m.unit
       // for {
@@ -170,7 +202,8 @@ object UserRepository {
       def updateUser(user: User, roles: List[Role]): F[Unit] =
         for {
           _ <-
-            sql"UPDATE users SET username = ${user.userName}, password_hash = ${user.passwordHash}, email = ${user.email}, is_active = ${user.isActive} WHERE id = ${user.id}"
+            sql"UPDATE users SET username = ${user.userName}, password_hash = ${user.passwordHash}, email = ${user
+                .email}, is_active = ${user.isActive} WHERE id = ${user.id}"
               .update
               .run
               .transact(transactor)
@@ -196,6 +229,7 @@ object UserRepository {
           .query[Role]
           .to[List]
           .transact(transactor)
+
     }
 
 }
@@ -220,3 +254,8 @@ val numbers1 = List(1, 2, 3, 4, 5)
 val scanResult1: List[Int] = numbers.scanRight(0)(_ - _)
 
 // Result: List(3, 2, 0, -3, -5, 0)
+EmberClientBuilder
+  .default[IO]
+  // .withRetryPolicy(retryPolicy)
+  // .withRetryPolicy(???)
+  .build

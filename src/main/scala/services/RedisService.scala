@@ -1,28 +1,27 @@
 package services
 
+import java.time.{Duration => JavaDuration}
 import java.time.Duration
 
 import scala.concurrent.duration._
 
-// import org.bitlap.zim.cache.{JavaDuration, RedisService}
-// import org.bitlap.zim.cache.redis4cats.CatsRedisConfiguration.{redisHost, redisPort}
-import org.typelevel.log4cats.Logger
-import org.typelevel.log4cats.slf4j.Slf4jLogger
-
-import io.circe._
-import io.circe.parser.decode
-import io.circe.syntax.EncoderOps
-import io.lettuce.core.{ClientOptions, TimeoutOptions}
-import java.time.{Duration => JavaDuration}
 import cats.effect.{IO, Resource}
+
+import dev.profunktor.redis4cats
 import dev.profunktor.redis4cats.{Redis, RedisCommands}
 import dev.profunktor.redis4cats.connection.{RedisClient, RedisURI}
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.effects._
-import dev.profunktor.redis4cats
-import dev.profunktor.redis4cats.log4cats.log4CatsInstance
-
 import dev.profunktor.redis4cats.log4cats
+import dev.profunktor.redis4cats.log4cats.log4CatsInstance
+import io.circe._
+import io.circe.parser.decode
+import io.circe.syntax.EncoderOps
+import io.lettuce.core.{ClientOptions, TimeoutOptions}
+import org.typelevel.log4cats.slf4j.Slf4jLogger
+// import org.bitlap.zim.cache.{JavaDuration, RedisService}
+// import org.bitlap.zim.cache.redis4cats.CatsRedisConfiguration.{redisHost, redisPort}
+import org.typelevel.log4cats.Logger
 
 trait RedisService[F[_]] {
 
@@ -33,7 +32,7 @@ trait RedisService[F[_]] {
   def setSet(k: String, m: String): F[Long]
 
   def set[T](k: String, v: T, expireTime: JavaDuration = java.time.Duration.ofMinutes(30))(implicit
-      encoder: Encoder[T]
+    encoder: Encoder[T]
   ): F[Boolean]
 
   def get[T](key: String)(implicit decoder: Decoder[T]): F[Option[T]]
@@ -45,8 +44,9 @@ trait RedisService[F[_]] {
 }
 
 object CatsRedisServiceLive {
-  lazy val redisHost: String = "host"
-  lazy val redisPort: Int = 8080 // "port"
+
+  lazy val redisHost: String                          = "host"
+  lazy val redisPort: Int                             = 8080 // "port"
   private val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
 
   private val mkOpts: IO[ClientOptions] =
@@ -56,10 +56,7 @@ object CatsRedisServiceLive {
         .autoReconnect(false)
         .pingBeforeActivateConnection(false)
         .timeoutOptions(
-          TimeoutOptions
-            .builder()
-            .fixedTimeout(Duration.ofSeconds(10))
-            .build()
+          TimeoutOptions.builder().fixedTimeout(Duration.ofSeconds(10)).build()
         )
         .build()
     }
@@ -68,16 +65,16 @@ object CatsRedisServiceLive {
 
   val resource: Resource[IO, RedisCommands[IO, String, String]] =
     for {
-      uri <- Resource.eval(RedisURI.make[IO](s"redis://$redisHost:$redisPort"))
-      opts <- Resource.eval(mkOpts)
+      uri    <- Resource.eval(RedisURI.make[IO](s"redis://$redisHost:$redisPort"))
+      opts   <- Resource.eval(mkOpts)
       client <- RedisClient[IO].custom(uri, opts)
-      redis <- Redis[IO].fromClient(client, stringCodec)
+      redis  <- Redis[IO].fromClient(client, stringCodec)
     } yield redis
 
 }
 
-final case class CatsRedisServiceLive(redis: Resource[IO, RedisCommands[IO, String, String]])(implicit
-    logger: Logger[IO]
+final case class CatsRedisServiceLive(redis: Resource[IO, RedisCommands[IO, String, String]])(
+  implicit logger: Logger[IO]
 ) extends RedisService[IO] {
 
   override def getSets(k: String): IO[List[String]] =
@@ -95,12 +92,16 @@ final case class CatsRedisServiceLive(redis: Resource[IO, RedisCommands[IO, Stri
       redis.sAdd(k, m)
     }
 
-  override def set[T](k: String, v: T, expireTime: JavaDuration = java.time.Duration.ofMinutes(30))(implicit
-      encoder: Encoder[T]
+  override def set[T](k: String, v: T, expireTime: JavaDuration = java.time.Duration.ofMinutes(30))(
+    implicit encoder: Encoder[T]
   ): IO[Boolean] =
     logger.info(s"Redis set command: $k, $v, $expireTime") *> redis.use { redis =>
       redis
-        .set(k, v.asJson.noSpaces, SetArgs(SetArg.Existence.Nx, SetArg.Ttl.Ex(expireTime.getSeconds.seconds)))
+        .set(
+          k,
+          v.asJson.noSpaces,
+          SetArgs(SetArg.Existence.Nx, SetArg.Ttl.Ex(expireTime.getSeconds.seconds))
+        )
         .map(_ => true)
     }
 
@@ -123,4 +124,5 @@ final case class CatsRedisServiceLive(redis: Resource[IO, RedisCommands[IO, Stri
     logger.info(s"Redis del command: $key") *> redis.use { redis =>
       redis.del(key).map(_ > 0)
     }
+
 }
