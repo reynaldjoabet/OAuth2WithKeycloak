@@ -11,7 +11,7 @@ val redis4catsVersion = "1.4.3"
 val flywayVersion     = "9.21.0"
 val postgresVersion   = "42.5.4"
 val doobieVersion     = "1.0.0-RC4"
-val logbackVersion    = "1.4.7"
+val logbackVersion    = "1.4.14"
 val pureConfigVersion = "0.17.4"
 
 def kamon(artifact: String) = "io.kamon" %% s"kamon-$artifact" % "2.6.1"
