@@ -1,4 +1,5 @@
 package middleware
+
 import org.http4s.server.middleware
 //import cats.effect.kernel.Async
 //import org.http4s.Request
@@ -8,6 +9,7 @@ import org.http4s.server.middleware
 //final case class SessionManagementMiddleware[F[_]: Async]()
 
 object SessionManagementMiddleware {
+
   // def apply[F[_]: Async]: HttpMiddleware[F] = service =>
   // Kleisli { request: Request[F] =>
   // ???
@@ -29,6 +31,7 @@ object SessionManagementMiddleware {
     val list = new MyFunctor[List] {
       override def map[A, B](fa: List[A])(f: A => B): List[B] = ???
     }
+
     val map = new MyFunctor[({ type T[X] = Map[Int, X] })#T] {
       override def map[A, B](fa: Map[Int, A])(f: A => B): Map[Int, B] = ???
     }
@@ -46,7 +49,7 @@ object SessionManagementMiddleware {
   }
 
   def foo[F[_], A](fa: F[A]) = fa.toString()
-  val m = foo[Function1[Int, *], Int](_ + 4)
-  val n = foo { x: Int => x + 3 }
+  val m                      = foo[Function1[Int, *], Int](_ + 4)
+  val n                      = foo { x: Int => x + 3 }
 
 }
