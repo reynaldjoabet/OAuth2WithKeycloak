@@ -1,6 +1,6 @@
 ThisBuild / version := "0.1.0-SNAPSHOT"
 
-ThisBuild / scalaVersion := "2.13.10"
+ThisBuild / scalaVersion := "2.13.13"
 
 val http4sVersion     = "0.23.16"
 val cirisVersion      = "3.1.0"
