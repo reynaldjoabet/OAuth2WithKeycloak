@@ -14,7 +14,7 @@ val doobieVersion     = "1.0.0-RC4"
 val logbackVersion    = "1.4.7"
 val pureConfigVersion = "0.17.4"
 
-def kamon(artifact: String) = "io.kamon" %% s"kamon-$artifact" % "2.6.1"
+def kamon(artifact: String) = "io.kamon" %% s"kamon-$artifact" % "2.6.6"
 val kamonCore               = kamon("core")
 val kamonHttp4s             = kamon("http4s-0.23")
 val kamonPrometheus         = kamon("prometheus")
