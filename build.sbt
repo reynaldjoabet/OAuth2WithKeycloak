@@ -10,7 +10,7 @@ val fs2Version        = "3.7.0"
 val redis4catsVersion = "1.4.3"
 val flywayVersion     = "9.21.0"
 val postgresVersion   = "42.5.4"
-val doobieVersion     = "1.0.0-RC4"
+val doobieVersion     = "1.0.0-RC5"
 val logbackVersion    = "1.4.7"
 val pureConfigVersion = "0.17.4"
 
