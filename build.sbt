@@ -29,7 +29,7 @@ def ciris(artifact: String): ModuleID = "is.cir" %% artifact % cirisVersion
 def http4s(artifact: String): ModuleID =
   "org.http4s" %% s"http4s-$artifact" % http4sVersion
 
-val prometheusMetrics = "org.http4s" %% "http4s-prometheus-metrics" % "0.24.6"
+val prometheusMetrics = "org.http4s" %% "http4s-prometheus-metrics" % "0.24.7"
 
 val circeGenericExtras = circe("generic-extras")
 val circeCore          = circe("core")
